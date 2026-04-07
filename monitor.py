@@ -353,6 +353,62 @@ def load_recipients_from_env() -> dict:
 
 
 # ─────────────────────────────────────────────
+# 재발송 모드 (수정 후 초안 재발송)
+# ─────────────────────────────────────────────
+def resend_draft(config: dict, mailer: "Mailer"):
+    """
+    RESEND_MODE 환경변수: "date|game_id|issue_number|issue_url"
+    override 파일: logs/override_{date}_{safe_game_id}.json
+    """
+    resend_mode = os.environ.get("RESEND_MODE", "")
+    if not resend_mode:
+        return False
+
+    parts = resend_mode.split("|", 3)
+    if len(parts) < 3:
+        print(f"[재발송] RESEND_MODE 형식 오류: {resend_mode}")
+        return False
+
+    date_str, game_id, issue_number_str = parts[0], parts[1], parts[2]
+    issue_url = parts[3] if len(parts) > 3 else ""
+    issue_number = int(issue_number_str) if issue_number_str.isdigit() else None
+
+    print(f"=== 재발송 모드: {game_id} / {date_str} ===")
+
+    # override 파일 로드
+    safe_id = re.sub(r'[^a-zA-Z0-9]', '_', game_id)
+    override_path = LOGS_DIR / f"override_{date_str}_{safe_id}.json"
+    if not override_path.exists():
+        print(f"[재발송] override 파일 없음: {override_path}")
+        return False
+
+    with open(override_path, encoding="utf-8") as f:
+        override = json.load(f)
+
+    found_list = override.get("found_list", [])
+
+    # 게임 설정 찾기
+    game = next((g for g in config["games"] if g["id"] == game_id), None)
+    if not game:
+        print(f"[재발송] 게임 없음: {game_id}")
+        return False
+
+    # 수신자 주입
+    recipients_map = load_recipients_from_env()
+    game["recipients"] = recipients_map.get(game["id"], {"draft": [], "final": []})
+
+    mailer.send_draft(
+        game=game,
+        found_list=found_list,
+        date_str=date_str,
+        issue_url=issue_url,
+        issue_number=issue_number,
+    )
+    print(f"[재발송] 초안 재발송 완료")
+    return True
+
+
+# ─────────────────────────────────────────────
 # 메인 실행
 # ─────────────────────────────────────────────
 def main():
@@ -362,6 +418,14 @@ def main():
     print(f"=== 앱스토어 피쳐드 모니터링 시작: {today_str} ===")
 
     config = load_config()
+    gmail_pw = os.environ.get("GMAIL_APP_PASSWORD", "")
+    sender = config["email"]["sender"]
+    mailer = Mailer(sender=sender, app_password=gmail_pw, config=config)
+
+    # 재발송 모드 체크
+    if resend_draft(config, mailer):
+        return
+
     active_games = get_active_games(config, today)
 
     # 수신자를 환경변수에서 주입
@@ -388,11 +452,6 @@ def main():
 
     # 게임별 결과 집계
     game_results: dict[str, list] = {g["id"]: [] for g in active_games}
-
-    gmail_pw = os.environ.get("GMAIL_APP_PASSWORD", "")
-    sender = config["email"]["sender"]
-
-    mailer = Mailer(sender=sender, app_password=gmail_pw, config=config)
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
@@ -456,6 +515,7 @@ def main():
                 found_list=found_list,
                 date_str=today_str,
                 issue_url=issue_url,
+                issue_number=issue_number,
             )
             log_games[gid] = {
                 "found": [

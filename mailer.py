@@ -81,7 +81,8 @@ class Mailer:
     # ─────────────────────────────────────────
     # 초안 이메일 발송
     # ─────────────────────────────────────────
-    def send_draft(self, game: dict, found_list: list, date_str: str, issue_url: str) -> str:
+    def send_draft(self, game: dict, found_list: list, date_str: str,
+                   issue_url: str, issue_number: int | None = None) -> str:
         recipients = game["recipients"].get("draft", [])
         subject = f"[초안] 앱스토어 피쳐드 · {game['default_name']} · {date_str}"
         html = self._build_html(
@@ -90,6 +91,7 @@ class Mailer:
             date_str=date_str,
             is_draft=True,
             issue_url=issue_url,
+            issue_number=issue_number,
         )
         self._send(recipients=recipients, subject=subject, html=html, found_list=found_list)
         return datetime.utcnow().isoformat() + "Z"
@@ -136,7 +138,7 @@ class Mailer:
     # HTML 본문 빌더
     # ─────────────────────────────────────────
     def _build_html(self, game: dict, found_list: list, date_str: str,
-                    is_draft: bool, issue_url: str) -> str:
+                    is_draft: bool, issue_url: str, issue_number: int | None = None) -> str:
         game_name = game["default_name"]
         countries_checked = " · ".join(c.upper() for c in self.config.get("countries", []))
         tabs_checked = " · ".join(TAB_LABELS.get(t, t) for t in self.config.get("tabs", []))
@@ -192,28 +194,30 @@ class Mailer:
         draft_section = ""
         if is_draft:
             approve_href = issue_url if issue_url else "#"
+            # 수정 페이지 URL 구성
+            owner = self.config.get("github", {}).get("owner", "")
+            repo  = self.config.get("github", {}).get("repo", "")
+            import urllib.parse
+            edit_params = urllib.parse.urlencode({
+                "date": date_str,
+                "game": game["id"],
+                "issue": issue_number or "",
+            })
+            edit_href = f"https://{owner}.github.io/{repo}/edit.html?{edit_params}"
+
             draft_section = f"""
             <div style="margin:24px 0;padding:16px;background:#fffbf0;border:1px solid #f0c040;border-radius:8px;">
-              <p style="font-size:13px;color:#856404;margin:0 0 12px 0;font-weight:bold;">⚠️ 초안 검토 — 아래 버튼으로 수정하거나 최종 발송을 승인하세요</p>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-                <button style="{_btn_style('#6c757d')}">📋 항목 삭제</button>
-                <button style="{_btn_style('#6c757d')}">✏️ 국가·섹션명 수정</button>
-                <button style="{_btn_style('#6c757d')}">🖼️ 이미지 직접 추가</button>
-                <button style="{_btn_style('#6c757d')}">👥 수신자 임시 변경*</button>
-              </div>
-              <p style="font-size:11px;color:#888;margin:0 0 16px 0;">
-                * 수신자 임시 변경 = 이번 발송 건에만 적용. 영구 변경은 관리 페이지에서
-              </p>
-              <div style="display:flex;gap:12px;">
+              <p style="font-size:13px;color:#856404;margin:0 0 16px 0;font-weight:bold;">⚠️ 초안 검토 — 내역을 확인하고 최종 발송을 승인하세요</p>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <a href="{edit_href}"
+                   style="display:inline-block;padding:10px 24px;background:#6c757d;color:#fff;
+                          text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
+                  ✏️ 내역 수정
+                </a>
                 <a href="{approve_href}"
                    style="display:inline-block;padding:10px 24px;background:#27ae60;color:#fff;
                           text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
                   ✅ 이상 없음 — 최종 이메일 발송
-                </a>
-                <a href="{approve_href}#comment"
-                   style="display:inline-block;padding:10px 24px;background:#e67e22;color:#fff;
-                          text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
-                  🔄 수정 후 재검토 요청
                 </a>
               </div>
             </div>"""

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>피쳐드 내역 수정</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f0f2f5; color: #222;
+    }
+    header {
+      background: #0066cc; color: #fff;
+      padding: 16px 32px;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    header p  { margin: 4px 0 0 0; font-size: 13px; opacity: .75; }
+
+    .token-bar {
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      padding: 10px 32px; display: flex; align-items: center; gap: 12px;
+    }
+    .token-bar input {
+      flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    }
+    .token-bar button {
+      padding: 8px 18px; background: #555; color: #fff;
+      border: none; border-radius: 6px; font-size: 14px; cursor: pointer;
+    }
+    .token-bar button:hover { background: #333; }
+    #token-status { font-size: 13px; color: #888; min-width: 80px; }
+
+    .container { max-width: 760px; margin: 28px auto; padding: 0 20px; }
+
+    .card {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .card h3 { margin: 0 0 16px 0; font-size: 15px; }
+
+    .entry-row {
+      display: grid; grid-template-columns: auto 1fr 1fr;
+      gap: 10px; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+    }
+    .entry-row:last-child { border-bottom: none; }
+    .entry-flag { font-size: 20px; text-align: center; }
+    label { font-size: 12px; color: #888; display: block; margin-bottom: 3px; }
+    input[type="text"], input[type="url"] {
+      width: 100%; padding: 7px 10px; border: 1px solid #ddd; border-radius: 5px;
+      font-size: 13px; outline: none;
+    }
+    input:focus { border-color: #0066cc; }
+
+    .entry-delete {
+      grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 4px;
+    }
+    .btn-del {
+      padding: 4px 12px; font-size: 12px; color: #e74c3c;
+      border: 1px solid #e74c3c; border-radius: 4px; background: #fff; cursor: pointer;
+    }
+    .btn-del:hover { background: #fdf0ef; }
+
+    .add-row-btn {
+      width: 100%; margin-top: 12px; padding: 8px; font-size: 13px;
+      border: 1px dashed #ccc; border-radius: 6px; background: none;
+      cursor: pointer; color: #0066cc;
+    }
+    .add-row-btn:hover { background: #f0f6ff; }
+
+    .actions {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .btn-resend {
+      padding: 12px 28px; background: #0066cc; color: #fff;
+      border: none; border-radius: 6px; font-size: 15px;
+      font-weight: 700; cursor: pointer;
+    }
+    .btn-resend:hover { background: #0052a3; }
+    .btn-approve {
+      padding: 12px 28px; background: #27ae60; color: #fff;
+      border: none; border-radius: 6px; font-size: 15px;
+      font-weight: 700; cursor: pointer; text-decoration: none;
+      display: inline-block;
+    }
+    .btn-approve:hover { background: #1e8449; }
+
+    #status-msg {
+      margin-top: 12px; font-size: 14px; color: #888;
+    }
+    .empty-msg { color: #aaa; text-align: center; padding: 24px; font-size: 14px; }
+
+    .country-select, .tab-select {
+      padding: 7px 10px; border: 1px solid #ddd; border-radius: 5px;
+      font-size: 13px; background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✏️ 피쳐드 내역 수정</h1>
+  <p id="header-subtitle">로딩 중...</p>
+</header>
+
+<div class="token-bar">
+  <input type="text" id="github-token" placeholder="GitHub Personal Access Token" autocomplete="off">
+  <button onclick="loadData()">🔄 불러오기</button>
+  <span id="token-status"></span>
+</div>
+
+<div class="container">
+  <div class="card" id="entries-card">
+    <h3>피쳐드 내역</h3>
+    <div id="entries-container">
+      <div class="empty-msg">위에서 토큰을 입력하고 [불러오기]를 눌러주세요.</div>
+    </div>
+    <button class="add-row-btn" onclick="addEntry()">+ 항목 추가</button>
+  </div>
+
+  <div class="card">
+    <h3>발송</h3>
+    <div class="actions">
+      <button class="btn-resend" onclick="saveAndResend()">💾 저장 후 초안 재발송</button>
+      <a id="approve-link" href="#" class="btn-approve">✅ 이상 없음 — 최종 발송</a>
+    </div>
+    <div id="status-msg"></div>
+  </div>
+</div>
+
+<script src="edit-page.js"></script>
+</body>
+</html>
