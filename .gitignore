@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# 스크린샷 (임시 파일 — Actions 아티팩트로 별도 보관)
+screenshots/*.png
+
+# 자격증명
+credentials.json
+emaillist.env
+*.env
+google_cookies*.json
+
+# Chrome 프로필
+uc_profile*/
+
+# 로컬 로그 (Actions에서 커밋 안 함)
+# logs/run_log.json 은 추적 유지
+
+# OS
+.DS_Store
+Thumbs.db

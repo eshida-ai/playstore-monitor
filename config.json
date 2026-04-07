@@ -1,0 +1,43 @@
+{
+  "schedule": {
+    "run_time_utc": "00:00",
+    "run_time_kst": "09:00"
+  },
+  "drive": {
+    "folder_path": "피쳐드모니터링/수동추가",
+    "filename_format": "{country}_{tab}_{section}_{game}.png"
+  },
+  "github": {
+    "owner": "eshida-ai",
+    "repo": "playstore-monitor",
+    "token_env": "GITHUB_TOKEN"
+  },
+  "games": [
+    {
+      "id": "star sailors",
+      "default_name": "star sailors",
+      "stores": ["apple"],
+      "active_from": "2026-04-10",
+      "active_until": "2026-04-10",
+      "names": {
+        "kr": "스타 세일러",
+        "us": "star sailors",
+        "jp": ""
+      },
+      "bundle_ids": {
+        "apple": "com.com2usholdings.starsailors.ios.apple.global.normal",
+        "google": ""
+      },
+      "recipients": {
+        "draft": ["eshida@com2us.com"],
+        "final": ["eshida@com2us.com"]
+      }
+    }
+  ],
+  "countries": ["kr", "us", "jp"],
+  "tabs": ["today", "games"],
+  "email": {
+    "sender": "flyhighgamesmain@gmail.com",
+    "app_password": "${GMAIL_APP_PASSWORD}"
+  }
+}

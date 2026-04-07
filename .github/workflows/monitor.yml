@@ -1,0 +1,118 @@
+name: App Store Featured Monitor
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 매일 KST 09:00 (UTC 00:00)
+  workflow_dispatch:        # 수동 실행 버튼 지원
+  issues:
+    types: [closed]         # Issue close → 최종 이메일 발송 트리거
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: Playwright 브라우저 설치
+        run: playwright install chromium --with-deps
+
+      - name: 모니터링 실행 (1차)
+        id: run1
+        continue-on-error: true
+        run: python monitor.py
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 1차 실패 시 대기 후 재시도 (2차)
+        if: steps.run1.outcome == 'failure'
+        run: |
+          echo "1차 실행 실패 — 60초 후 재시도"
+          sleep 60
+        shell: bash
+
+      - name: 모니터링 실행 (2차 재시도)
+        if: steps.run1.outcome == 'failure'
+        id: run2
+        continue-on-error: true
+        run: python monitor.py
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 2차 실패 시 대기 후 재시도 (3차)
+        if: steps.run1.outcome == 'failure' && steps.run2.outcome == 'failure'
+        run: |
+          echo "2차 실행 실패 — 120초 후 최종 재시도"
+          sleep 120
+        shell: bash
+
+      - name: 모니터링 실행 (3차 최종 재시도)
+        if: steps.run1.outcome == 'failure' && steps.run2.outcome == 'failure'
+        id: run3
+        run: python monitor.py
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 스크린샷 아티팩트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.run_id }}
+          path: screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 실행 로그 아티팩트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-log-${{ github.run_id }}
+          path: logs/run_log.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # GitHub Issue close 감지 → 최종 이메일 발송
+  # ─────────────────────────────────────────────
+  send-final-on-approval:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'closed'
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 최종 이메일 발송
+        run: python send_final.py
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          CLOSED_BY: ${{ github.event.sender.login }}

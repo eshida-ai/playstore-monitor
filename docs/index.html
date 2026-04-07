@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>앱스토어 피쳐드 모니터링 — 관리 페이지</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5; color: #222;
+    }
+    header {
+      background: #0066cc; color: #fff;
+      padding: 16px 32px; display: flex; align-items: center; gap: 16px;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header p  { margin: 0; font-size: 13px; opacity: .75; }
+    .save-bar {
+      position: sticky; top: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      padding: 10px 32px; display: flex; align-items: center; gap: 12px;
+    }
+    .save-bar input {
+      flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    }
+    .save-bar button {
+      padding: 8px 20px; background: #0066cc; color: #fff;
+      border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600;
+    }
+    .save-bar button:hover { background: #0052a3; }
+    #save-status { font-size: 13px; color: #27ae60; min-width: 120px; }
+
+    .tabs {
+      display: flex; gap: 0; padding: 0 32px;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+    }
+    .tab-btn {
+      padding: 14px 24px; border: none; background: none;
+      font-size: 15px; cursor: pointer; color: #777; border-bottom: 3px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn.active { color: #0066cc; border-bottom-color: #0066cc; font-weight: 600; }
+    .tab-btn:hover { color: #0066cc; }
+
+    .tab-content { display: none; padding: 28px 32px; max-width: 900px; }
+    .tab-content.active { display: block; }
+
+    .card {
+      background: #fff; border-radius: 10px; padding: 20px 24px;
+      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-header h3 { margin: 0; font-size: 16px; }
+    .badge {
+      font-size: 12px; padding: 2px 10px; border-radius: 12px;
+      background: #e8f4fd; color: #0066cc; font-weight: 600;
+    }
+    .badge.active { background: #e8f8ef; color: #27ae60; }
+    .badge.inactive { background: #f8f8f8; color: #999; }
+
+    label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; margin-top: 12px; }
+    input[type="text"], input[type="date"], input[type="email"], select {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; outline: none; transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: #0066cc; }
+
+    .names-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+      margin-top: 8px;
+    }
+    .names-grid label { margin-top: 0; }
+
+    .recipient-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .recipient-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .recipient-row input { flex: 1; }
+    .btn-sm {
+      padding: 5px 12px; font-size: 12px; border: 1px solid #ddd;
+      border-radius: 4px; background: #fff; cursor: pointer; white-space: nowrap;
+    }
+    .btn-sm:hover { background: #f5f5f5; }
+    .btn-sm.danger { color: #e74c3c; border-color: #e74c3c; }
+    .btn-sm.danger:hover { background: #fdf0ef; }
+    .btn-sm.primary { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .btn-sm.primary:hover { background: #0052a3; }
+
+    .btn-add {
+      margin-top: 8px; padding: 6px 16px; font-size: 13px;
+      border: 1px dashed #ccc; border-radius: 6px; background: none;
+      cursor: pointer; color: #0066cc; width: 100%;
+    }
+    .btn-add:hover { background: #f0f6ff; }
+
+    .stores-row { display: flex; gap: 10px; margin-top: 8px; }
+    .store-toggle {
+      padding: 6px 16px; border-radius: 20px; border: 1px solid #ddd;
+      font-size: 13px; cursor: pointer; background: #fff; transition: all .15s;
+    }
+    .store-toggle.on { background: #0066cc; color: #fff; border-color: #0066cc; }
+
+    .game-list-header {
+      display: flex; justify-content: flex-end; margin-bottom: 16px;
+    }
+    .btn-primary {
+      padding: 8px 20px; background: #0066cc; color: #fff;
+      border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600;
+    }
+    .btn-primary:hover { background: #0052a3; }
+    .btn-danger {
+      padding: 6px 14px; background: #e74c3c; color: #fff;
+      border: none; border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+    .btn-danger:hover { background: #c0392b; }
+
+    .drive-status {
+      display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+      border-radius: 8px; margin-bottom: 16px;
+    }
+    .drive-status.ok { background: #e8f8ef; }
+    .drive-status.err { background: #fdf0ef; }
+    .drive-status .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .drive-status.ok .dot { background: #27ae60; }
+    .drive-status.err .dot { background: #e74c3c; }
+
+    .image-list { display: flex; flex-direction: column; gap: 8px; }
+    .image-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      background: #f8f8f8; border-radius: 6px;
+    }
+    .image-item .img-name { flex: 1; font-size: 13px; font-family: monospace; }
+    .image-item .img-meta { font-size: 12px; color: #888; }
+    .image-item.invalid { background: #fff3f3; }
+    .image-item.invalid .img-name { color: #e74c3c; }
+
+    .empty-msg { text-align: center; color: #aaa; padding: 32px; font-size: 14px; }
+
+    hr.sep { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+
+    .collapsible-header {
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      user-select: none;
+    }
+    .collapsible-header .chevron { transition: transform .2s; font-size: 12px; }
+    .collapsible-header.open .chevron { transform: rotate(90deg); }
+    .collapsible-body { display: none; padding-top: 12px; }
+    .collapsible-body.open { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📱 앱스토어 피쳐드 모니터링</h1>
+    <p>게임·수신자·이미지 관리 페이지</p>
+  </div>
+</header>
+
+<!-- 저장 바 -->
+<div class="save-bar">
+  <input type="text" id="github-token" placeholder="GitHub Personal Access Token (repo 권한)" autocomplete="off">
+  <button onclick="saveConfig()">💾 저장 (GitHub에 반영)</button>
+  <span id="save-status"></span>
+</div>
+
+<!-- 탭 -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('games')">🎮 게임 관리</button>
+  <button class="tab-btn" onclick="switchTab('recipients')">📧 수신자 관리</button>
+  <button class="tab-btn" onclick="switchTab('images')">🖼️ 이미지 추가</button>
+</div>
+
+<!-- ══════════════ 게임 관리 ══════════════ -->
+<div id="tab-games" class="tab-content active">
+  <div class="game-list-header">
+    <button class="btn-primary" onclick="addGame()">+ 게임 추가</button>
+  </div>
+  <div id="game-cards"></div>
+</div>
+
+<!-- ══════════════ 수신자 관리 ══════════════ -->
+<div id="tab-recipients" class="tab-content">
+  <div class="card">
+    <label>게임 선택</label>
+    <select id="recipient-game-select" onchange="renderRecipients()"></select>
+  </div>
+  <div id="recipient-card"></div>
+</div>
+
+<!-- ══════════════ 이미지 추가 ══════════════ -->
+<div id="tab-images" class="tab-content">
+  <div id="drive-status-card" class="card">
+    <h3 style="margin:0 0 12px 0;font-size:15px;">Google Drive 연결 상태</h3>
+    <div id="drive-status" class="drive-status err">
+      <div class="dot"></div>
+      <span>연결 확인 중...</span>
+    </div>
+    <p style="font-size:13px;color:#888;margin:0;">
+      Drive 폴더 경로: <code id="drive-folder-path" style="background:#f5f5f5;padding:2px 6px;border-radius:3px;"></code>
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 4px 0;font-size:15px;">오늘 추가된 수동 이미지</h3>
+    <p style="margin:0 0 14px 0;font-size:13px;color:#888;">
+      파일명 규칙: <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;">{국가}_{탭}_{섹션명}_{게임명}.png</code>
+      &nbsp; 예: <code style="background:#f5f5f5;padding:2px 6px;border-radius:3px;">KR_Games_신규출시_StarBlast.png</code>
+    </p>
+    <div id="image-list" class="image-list">
+      <div class="empty-msg">로그를 불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<script src="config-editor.js"></script>
+</body>
+</html>
