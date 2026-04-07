@@ -31,7 +31,8 @@ TAB_LABELS = {"today": "Today", "games": "Games"}
 class Mailer:
     def __init__(self, sender: str, app_password: str, config: dict):
         self.sender = sender
-        self.app_password = app_password
+        # 복사 시 섞일 수 있는 공백·비ASCII 문자 제거
+        self.app_password = ''.join(c for c in app_password if c.isascii() and not c.isspace())
         self.config = config
 
     # ─────────────────────────────────────────
