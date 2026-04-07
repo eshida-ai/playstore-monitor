@@ -28,6 +28,18 @@ let configSha = null;  // GitHub API 업데이트용 파일 SHA
   renderImageList();
 })();
 
+async function reloadConfig() {
+  const statusEl = document.getElementById('save-status');
+  statusEl.textContent = '불러오는 중...';
+  statusEl.style.color = '#888';
+  await loadConfig();
+  renderGameCards();
+  renderRecipientSelect();
+  statusEl.textContent = '✅ 불러오기 완료';
+  statusEl.style.color = '#27ae60';
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
+}
+
 function readUrlParams() {
   const params = new URLSearchParams(location.search);
   if (params.get('owner')) window._repoOwner = params.get('owner');

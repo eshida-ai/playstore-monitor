@@ -165,6 +165,7 @@
 <!-- 저장 바 -->
 <div class="save-bar">
   <input type="text" id="github-token" placeholder="GitHub Personal Access Token (repo 권한)" autocomplete="off">
+  <button onclick="reloadConfig()" style="background:#555;">🔄 불러오기</button>
   <button onclick="saveConfig()">💾 저장 (GitHub에 반영)</button>
   <span id="save-status"></span>
 </div>
