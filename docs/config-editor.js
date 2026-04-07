@@ -6,8 +6,8 @@
 // ─────────────────────────────────────────────
 // 설정
 // ─────────────────────────────────────────────
-const REPO_OWNER = 'eshida-ai';        // ← GitHub 사용자명/조직명 입력
-const REPO_NAME  = 'playstore-monitor';        // ← 저장소명 입력
+const REPO_OWNER = 'eshida-ai';
+const REPO_NAME  = 'playstore-monitor';
 const CONFIG_PATH_IN_REPO = 'config.json';
 
 // 실제 배포 시 위 값을 채우거나, URL 파라미터로 받아도 됨
