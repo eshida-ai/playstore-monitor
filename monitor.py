@@ -338,6 +338,21 @@ def scan_with_retry(browser_context, url: str, country: str, tab: str,
 
 
 # ─────────────────────────────────────────────
+# 수신자 로드 (GitHub Secrets)
+# ─────────────────────────────────────────────
+def load_recipients_from_env() -> dict:
+    """RECIPIENTS_CONFIG 환경변수에서 수신자 목록 파싱
+    형식: {"game_id": {"draft": [...], "final": [...]}}
+    """
+    raw = os.environ.get("RECIPIENTS_CONFIG", "{}")
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[경고] RECIPIENTS_CONFIG 파싱 실패: {e}")
+        return {}
+
+
+# ─────────────────────────────────────────────
 # 메인 실행
 # ─────────────────────────────────────────────
 def main():
@@ -348,6 +363,13 @@ def main():
 
     config = load_config()
     active_games = get_active_games(config, today)
+
+    # 수신자를 환경변수에서 주입
+    recipients_map = load_recipients_from_env()
+    for game in active_games:
+        game["recipients"] = recipients_map.get(
+            game["id"], {"draft": [], "final": []}
+        )
 
     if not active_games:
         print("오늘 활성 게임 없음. 종료.")

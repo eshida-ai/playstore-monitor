@@ -224,7 +224,6 @@ function addGame() {
     active_until: until,
     names: {},
     bundle_ids: { apple: '', google: '' },
-    recipients: { draft: [], final: [] },
   });
   renderGameCards();
   renderRecipientSelect();
@@ -244,69 +243,51 @@ function removeGame(idx) {
 // ══ 수신자 관리 탭 ══
 // ─────────────────────────────────────────────
 function renderRecipientSelect() {
-  const sel = document.getElementById('recipient-game-select');
-  if (!sel) return;
-  sel.innerHTML = config.games.map((g, i) =>
-    `<option value="${i}">${esc(g.default_name)}</option>`
-  ).join('');
   renderRecipients();
 }
 
 function renderRecipients() {
-  const sel = document.getElementById('recipient-game-select');
   const container = document.getElementById('recipient-card');
-  if (!sel || !container || !config.games.length) {
-    if (container) container.innerHTML = '<div class="card empty-msg">등록된 게임이 없습니다.</div>';
-    return;
-  }
-  const idx = parseInt(sel.value, 10);
-  const game = config.games[idx];
+  if (!container) return;
 
-  function recipientRows(type) {
-    return (game.recipients?.[type] || []).map((email, ri) => `
-      <div class="recipient-row">
-        <input type="email" value="${esc(email)}"
-               onchange="setRecipient(${idx},'${type}',${ri},this.value)">
-        <button class="btn-sm danger" onclick="removeRecipient(${idx},'${type}',${ri})">삭제</button>
-      </div>`).join('');
-  }
+  const owner = getOwner();
+  const repo  = getRepo();
+  const secretsUrl = `https://github.com/${owner}/${repo}/settings/secrets/actions`;
+
+  const gameIds = (config?.games || []).map(g => g.id);
+  const exampleJson = JSON.stringify(
+    Object.fromEntries(gameIds.map(id => [id, { draft: ['담당자@company.com'], final: ['전체@company.com'] }])),
+    null, 2
+  );
 
   container.innerHTML = `
     <div class="card">
-      <h3 style="margin:0 0 16px 0;font-size:16px;">${esc(game.default_name)} — 수신자 설정</h3>
-
-      <label style="font-weight:600;color:#0066cc;">📋 초안 수신자 (검토·승인 담당자)</label>
-      <p style="font-size:12px;color:#888;margin:2px 0 8px 0;">
-        초안 이메일을 받고 [이상 없음] 버튼으로 최종 발송을 승인하는 담당자
+      <h3 style="margin:0 0 8px 0;font-size:16px;">📧 수신자 관리</h3>
+      <p style="font-size:14px;color:#555;line-height:1.7;margin:0 0 16px 0;">
+        수신자 이메일은 보안을 위해 <strong>GitHub Secrets</strong>에서 관리합니다.<br>
+        아래 버튼을 눌러 <code>RECIPIENTS_CONFIG</code> Secret을 추가하거나 수정하세요.
       </p>
-      <div id="draft-recipients-${idx}" class="recipient-list">${recipientRows('draft')}</div>
-      <button class="btn-add" onclick="addRecipient(${idx},'draft')">+ 초안 수신자 추가</button>
+      <a href="${secretsUrl}" target="_blank"
+         style="display:inline-block;padding:10px 20px;background:#0066cc;color:#fff;
+                text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:20px;">
+        🔐 GitHub Secrets 열기
+      </a>
 
       <hr class="sep">
 
-      <label style="font-weight:600;color:#27ae60;">📨 최종 수신자 (전체 공유 대상)</label>
-      <p style="font-size:12px;color:#888;margin:2px 0 8px 0;">
-        승인 후 최종 이메일을 받는 모든 담당자
-      </p>
-      <div id="final-recipients-${idx}" class="recipient-list">${recipientRows('final')}</div>
-      <button class="btn-add" onclick="addRecipient(${idx},'final')">+ 최종 수신자 추가</button>
+      <p style="font-size:13px;font-weight:600;margin:0 0 8px 0;">Secret 이름</p>
+      <code style="background:#f5f5f5;padding:6px 12px;border-radius:4px;font-size:14px;display:block;margin-bottom:16px;">
+        RECIPIENTS_CONFIG
+      </code>
+
+      <p style="font-size:13px;font-weight:600;margin:0 0 8px 0;">Secret 값 형식 (JSON)</p>
+      <pre style="background:#f5f5f5;padding:12px 16px;border-radius:6px;font-size:13px;overflow-x:auto;margin:0 0 16px 0;">${esc(exampleJson)}</pre>
+
+      <div style="background:#fffbf0;border:1px solid #f0c040;border-radius:6px;padding:12px 16px;font-size:13px;color:#856404;">
+        💡 <strong>게임 추가 시</strong>: Secret 값의 JSON에 새 게임 항목을 추가하면 됩니다.<br>
+        💡 <strong>key</strong>는 config.json의 <code>game.id</code>와 동일해야 합니다.
+      </div>
     </div>`;
-}
-
-function setRecipient(gameIdx, type, recIdx, value) {
-  config.games[gameIdx].recipients[type][recIdx] = value;
-}
-
-function addRecipient(gameIdx, type) {
-  if (!config.games[gameIdx].recipients) config.games[gameIdx].recipients = {};
-  if (!config.games[gameIdx].recipients[type]) config.games[gameIdx].recipients[type] = [];
-  config.games[gameIdx].recipients[type].push('');
-  renderRecipients();
-}
-
-function removeRecipient(gameIdx, type, recIdx) {
-  config.games[gameIdx].recipients[type].splice(recIdx, 1);
-  renderRecipients();
 }
 
 // ─────────────────────────────────────────────

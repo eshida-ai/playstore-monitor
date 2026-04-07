@@ -17,6 +17,15 @@ RUN_LOG_PATH = LOGS_DIR / "run_log.json"
 SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 
 
+def _load_recipients_from_env() -> dict:
+    raw = os.environ.get("RECIPIENTS_CONFIG", "{}")
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[경고] RECIPIENTS_CONFIG 파싱 실패: {e}")
+        return {}
+
+
 def load_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
@@ -83,6 +92,10 @@ def main():
     if not game:
         print(f"[오류] config.json에서 게임 '{game_name}' 없음")
         sys.exit(1)
+
+    # 수신자를 환경변수에서 주입
+    recipients_map = _load_recipients_from_env()
+    game["recipients"] = recipients_map.get(game["id"], {"draft": [], "final": []})
 
     # 실행 로그에서 해당 날짜·게임의 found_list 복원
     run_log = load_run_log()

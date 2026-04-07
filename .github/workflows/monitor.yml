@@ -36,6 +36,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
 
       - name: 1차 실패 시 대기 후 재시도 (2차)
         if: steps.run1.outcome == 'failure'
@@ -53,6 +54,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
 
       - name: 2차 실패 시 대기 후 재시도 (3차)
         if: steps.run1.outcome == 'failure' && steps.run2.outcome == 'failure'
@@ -69,6 +71,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
 
       - name: 스크린샷 아티팩트 업로드
         if: always()
@@ -113,6 +116,7 @@ jobs:
         env:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           CLOSED_BY: ${{ github.event.sender.login }}
