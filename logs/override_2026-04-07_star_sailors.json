@@ -1,0 +1,20 @@
+{
+  "game_id": "star sailors",
+  "date": "2026-04-07",
+  "issue_number": 4,
+  "issue_url": "https://github.com/eshida-ai/playstore-monitor/issues/4",
+  "found_list": [
+    {
+      "country": "kr",
+      "tab": "games",
+      "section": "ㅇㅇㅇ",
+      "image_url": "https://drive.google.com/file/d/1__FH5QDSx7byxGqJupARr9YWxC4397o2/view?usp=drive_link"
+    },
+    {
+      "country": "kr",
+      "tab": "games",
+      "section": "",
+      "image_url": ""
+    }
+  ]
+}
