@@ -21,6 +21,12 @@ let configSha = null;  // GitHub API 업데이트용 파일 SHA
 // ─────────────────────────────────────────────
 (async function init() {
   readUrlParams();
+  // localStorage에서 저장된 토큰 복원
+  const saved = localStorage.getItem('gh_token');
+  if (saved) {
+    const el = document.getElementById('github-token');
+    if (el) el.value = saved;
+  }
   await loadConfig();
   renderGameCards();
   renderRecipientSelect();
@@ -86,6 +92,7 @@ function defaultConfig() {
 
 function githubHeaders() {
   const token = document.getElementById('github-token')?.value?.trim() || '';
+  if (token) localStorage.setItem('gh_token', token);
   const h = { 'Accept': 'application/vnd.github+json' };
   if (token) h['Authorization'] = `Bearer ${token}`;
   return h;

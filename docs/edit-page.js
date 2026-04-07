@@ -36,10 +36,18 @@ let overrideSha = null;
       `https://github.com/${REPO_OWNER}/${REPO_NAME}/issues/${ISSUE_NUM}`;
     issueUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/issues/${ISSUE_NUM}`;
   }
+  // localStorage에서 저장된 토큰 복원
+  const saved = localStorage.getItem('gh_token');
+  if (saved) {
+    const el = document.getElementById('github-token');
+    if (el) el.value = saved;
+  }
 })();
 
 function getToken() {
-  return document.getElementById('github-token').value.trim();
+  const t = document.getElementById('github-token').value.trim();
+  if (t) localStorage.setItem('gh_token', t);
+  return t;
 }
 
 function githubHeaders(extra = {}) {

@@ -14,6 +14,7 @@ BASE_DIR = Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config.json"
 LOGS_DIR = BASE_DIR / "logs"
 RUN_LOG_PATH = LOGS_DIR / "run_log.json"
+HISTORY_PATH = LOGS_DIR / "history.csv"
 SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 
 
@@ -69,6 +70,30 @@ def find_game_by_name(game_name: str, config: dict) -> dict | None:
         if game["default_name"] == game_name:
             return game
     return None
+
+
+def append_to_history(date_str: str, game: dict, found_list: list,
+                      approved_by: str, final_sent_at: str):
+    import csv
+    LOGS_DIR.mkdir(exist_ok=True)
+    is_new = not HISTORY_PATH.exists()
+    with open(HISTORY_PATH, "a", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        if is_new:
+            writer.writerow(["date", "game_id", "game_name", "country", "tab", "section",
+                             "approved_by", "final_sent_at"])
+        if found_list:
+            for r in found_list:
+                writer.writerow([
+                    date_str, game["id"], game["default_name"],
+                    r.get("country", ""), r.get("tab", ""), r.get("section", ""),
+                    approved_by, final_sent_at,
+                ])
+        else:
+            writer.writerow([
+                date_str, game["id"], game["default_name"],
+                "", "", "노출 없음", approved_by, final_sent_at,
+            ])
 
 
 def main():
@@ -144,6 +169,10 @@ def main():
             }
         }
     })
+
+    # 누적 내역 CSV 기록
+    append_to_history(date_str, game, found_list, closed_by, final_sent_at)
+
     print(f"최종 이메일 발송 완료: {final_sent_at}")
 
 
