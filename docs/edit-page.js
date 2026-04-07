@@ -94,7 +94,7 @@ async function loadData() {
         country: r.country,
         tab: r.tab,
         section: r.section,
-        image_url: '',
+        screenshot: r.screenshot || null,
       }));
     } else {
       entries = [];
@@ -148,9 +148,15 @@ function renderEntries() {
                oninput="updateEntry(${i},'section',this.value)">
       </div>
       <div style="grid-column:2/-1;">
-        <label>이미지 URL (Google Drive 공유 링크 또는 직접 링크)</label>
-        <input type="url" value="${esc(e.image_url || '')}" placeholder="https://..."
-               oninput="updateEntry(${i},'image_url',this.value)">
+        <label>이미지 첨부</label>
+        <label class="file-upload-label">
+          🖼️ 이미지 선택
+          <input type="file" accept="image/png,image/jpeg,image/jpg"
+                 onchange="uploadImage(event, ${i})">
+        </label>
+        <div class="upload-status" id="upload-status-${i}">
+          ${e.screenshot ? `✅ ${e.screenshot}` : '이미지 없음'}
+        </div>
       </div>
       <div class="entry-delete">
         <button class="btn-del" onclick="deleteEntry(${i})">🗑 항목 삭제</button>
@@ -173,8 +179,76 @@ function deleteEntry(idx) {
   renderEntries();
 }
 
+async function uploadImage(event, idx) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById(`upload-status-${idx}`);
+  statusEl.textContent = '업로드 중...';
+  statusEl.className = 'upload-status';
+
+  const token = getToken();
+  if (!token) {
+    statusEl.textContent = '❌ 토큰을 먼저 입력해주세요.';
+    statusEl.className = 'upload-status err';
+    return;
+  }
+
+  const safeId  = GAME_ID.replace(/[^a-zA-Z0-9]/g, '_');
+  const ext     = file.name.split('.').pop();
+  const filename = `manual_${DATE_STR}_${safeId}_${idx}.${ext}`;
+  const filePath = `screenshots/manual/${filename}`;
+
+  try {
+    // base64 인코딩
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    let binary = '';
+    uint8.forEach(b => binary += String.fromCharCode(b));
+    const content = btoa(binary);
+
+    // 기존 파일 SHA 확인 (덮어쓰기용)
+    let existingSha = null;
+    const checkRes = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`,
+      { headers: githubHeaders() }
+    );
+    if (checkRes.ok) {
+      const checkData = await checkRes.json();
+      existingSha = checkData.sha;
+    }
+
+    const body = {
+      message: `[수동 이미지] ${filename}`,
+      content,
+    };
+    if (existingSha) body.sha = existingSha;
+
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`,
+      {
+        method: 'PUT',
+        headers: { ...githubHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.statusText);
+    }
+
+    entries[idx].screenshot = `manual/${filename}`;
+    delete entries[idx].image_url;
+    statusEl.textContent = `✅ ${filename}`;
+    statusEl.className = 'upload-status ok';
+  } catch (e) {
+    statusEl.textContent = `❌ 업로드 실패: ${e.message}`;
+    statusEl.className = 'upload-status err';
+  }
+}
+
 function addEntry() {
-  entries.push({ country: 'kr', tab: 'games', section: '', image_url: '' });
+  entries.push({ country: 'kr', tab: 'games', section: '', screenshot: null });
   renderEntries();
   // 새 항목으로 스크롤
   const rows = document.querySelectorAll('.entry-row');

@@ -63,6 +63,17 @@
     }
     .btn-del:hover { background: #fdf0ef; }
 
+    .file-upload-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border: 1px solid #0066cc; border-radius: 5px;
+      font-size: 13px; color: #0066cc; cursor: pointer; background: #fff;
+    }
+    .file-upload-label:hover { background: #f0f6ff; }
+    .file-upload-label input[type="file"] { display: none; }
+    .upload-status { font-size: 12px; color: #888; margin-top: 4px; }
+    .upload-status.ok { color: #27ae60; }
+    .upload-status.err { color: #e74c3c; }
+
     .add-row-btn {
       width: 100%; margin-top: 12px; padding: 8px; font-size: 13px;
       border: 1px dashed #ccc; border-radius: 6px; background: none;

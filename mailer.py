@@ -177,17 +177,24 @@ class Mailer:
         # 인라인 이미지 섹션
         images_html = ""
         for r in found_list:
-            if not r.get("screenshot"):
-                continue
             flag = COUNTRY_FLAGS.get(r["country"].lower(), "")
             tab_label = TAB_LABELS.get(r["tab"], r["tab"])
-            cid = _make_cid(r["screenshot"])
-            images_html += f"""
+            caption = f"{flag} {r['country'].upper()} · {tab_label} · {r['section']}"
+
+            if r.get("image_url"):
+                # 수동 입력 외부 URL — 직접 src로 삽입
+                images_html += f"""
+            <div style="margin:16px 0;">
+              <img src="{r['image_url']}" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" alt="{r['section']}">
+              <p style="margin:4px 0;font-size:13px;color:#555;">{caption}</p>
+            </div>"""
+            elif r.get("screenshot"):
+                # 자동 캡처 스크린샷 — CID 인라인
+                cid = _make_cid(r["screenshot"])
+                images_html += f"""
             <div style="margin:16px 0;">
               <img src="cid:{cid}" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" alt="{r['section']}">
-              <p style="margin:4px 0;font-size:13px;color:#555;">
-                {flag} {r['country'].upper()} · {tab_label} · {r['section']}
-              </p>
+              <p style="margin:4px 0;font-size:13px;color:#555;">{caption}</p>
             </div>"""
 
         # 초안 전용: 수정 버튼 + 승인 버튼
