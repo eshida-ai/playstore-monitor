@@ -104,7 +104,7 @@ jobs:
   # ─────────────────────────────────────────────
   send-final-on-approval:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'closed'
+    if: github.event_name == 'issues' && github.event.action == 'closed' && github.event.issue.state_reason == 'completed'
 
     steps:
       - name: 저장소 체크아웃

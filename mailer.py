@@ -214,7 +214,7 @@ class Mailer:
 
             draft_section = f"""
             <div style="margin:24px 0;padding:16px;background:#fffbf0;border:1px solid #f0c040;border-radius:8px;">
-              <p style="font-size:13px;color:#856404;margin:0 0 16px 0;font-weight:bold;">⚠️ 초안 검토 — 내역을 확인하고 최종 발송을 승인하세요</p>
+              <p style="font-size:13px;color:#856404;margin:0 0 16px 0;font-weight:bold;">⚠️ 초안 검토 — 아래 버튼을 눌러 처리 방법을 선택하세요</p>
               <div style="display:flex;gap:12px;flex-wrap:wrap;">
                 <a href="{edit_href}"
                    style="display:inline-block;padding:10px 24px;background:#6c757d;color:#fff;
@@ -226,7 +226,16 @@ class Mailer:
                           text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
                   ✅ 이상 없음 — 최종 이메일 발송
                 </a>
+                <a href="{approve_href}"
+                   style="display:inline-block;padding:10px 24px;background:#95a5a6;color:#fff;
+                          text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
+                  🚫 최종 발송 없이 종료
+                </a>
               </div>
+              <p style="margin:14px 0 0 0;font-size:12px;color:#999;line-height:1.6;">
+                ✅ <strong>최종 이메일 발송</strong>: 링크 클릭 후 GitHub에서 <strong>Close as completed</strong> 선택<br>
+                🚫 <strong>최종 발송 없이 종료</strong>: 링크 클릭 후 GitHub에서 <strong>Close as not planned</strong> 선택
+              </p>
             </div>"""
 
         html = f"""<!DOCTYPE html>
