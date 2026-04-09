@@ -4,7 +4,7 @@
     "run_time_kst": "09:00"
   },
   "drive": {
-    "folder_path": "피쳐드모니터링/수동추가",
+    "folder_path": "í¼ì³ëëª¨ëí°ë§/ìëì¶ê°",
     "filename_format": "{store}_{country}_{section}_{game}.png"
   },
   "github": {
@@ -16,31 +16,61 @@
     {
       "id": "star sailors",
       "default_name": "star sailors",
-      "stores": ["apple"],
+      "stores": [
+        "apple"
+      ],
       "active_from": "2026-04-07",
-      "active_until": "2026-04-10",
+      "active_until": "2026-04-09",
       "names": {
-        "kr": "스타 세일러",
+        "kr": "ì¤í ì¸ì¼ë¬",
         "us": "star sailors",
         "jp": ""
       },
       "bundle_ids": {
-        "apple": "com.com2usholdings.starsailors.ios.apple.global.normal",
-        "google": ""
+        "apple": "",
+        "google": "com.redhedgies.colorsweeper"
+      }
+    },
+    {
+      "id": "Colorsweeper",
+      "default_name": "Colorsweeper",
+      "stores": [
+        "google"
+      ],
+      "active_from": "2026-04-09",
+      "active_until": "2026-04-10",
+      "names": {
+        "kr": "컬러스위퍼",
+        "us": "ColorSweeper"
+      },
+      "bundle_ids": {
+        "apple": "com.com2usholdings.colorsweeper.ios.apple.global.normal",
+        "google": "com.redhedgies.colorsweeper"
       }
     }
   ],
   "apple": {
-    "countries": ["kr", "us", "jp"],
-    "tabs": ["today", "games"]
+    "countries": [
+      "kr",
+      "us",
+      "jp"
+    ],
+    "tabs": [
+      "today",
+      "games"
+    ]
   },
   "google_play": {
-    "countries": ["kr", "us", "jp"],
+    "countries": [
+      "kr",
+      "us",
+      "jp"
+    ],
     "sections": {
       "kr": [
-        "진행 중인 이벤트",
-        "새로 출시된 게임",
-        "출시 예정! 사전등록 하세요"
+        "ì§í ì¤ì¸ ì´ë²¤í¸",
+        "ìë¡ ì¶ìë ê²ì",
+        "ì¶ì ìì ! ì¬ì ë±ë¡ íì¸ì"
       ],
       "us": [
         "Events happening now",
@@ -48,9 +78,9 @@
         "Pre-registration games"
       ],
       "jp": [
-        "イベント開催中",
-        "事前登録できるゲーム",
-        "新規リリースのゲーム"
+        "ã¤ãã³ãéå¬ä¸­",
+        "äºåç»é²ã§ããã²ã¼ã ",
+        "æ°è¦ãªãªã¼ã¹ã®ã²ã¼ã "
       ]
     },
     "locale_map": {
