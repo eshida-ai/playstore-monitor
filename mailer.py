@@ -229,7 +229,6 @@ class Mailer:
         google_list = [r for r in found_list if r.get("store") == "google"]
 
         # 전체 노출 요약 배지
-        total_countries = len(set(r["country"] for r in found_list))
         if found_list:
             parts = []
             if apple_list:

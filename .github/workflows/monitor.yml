@@ -18,6 +18,10 @@ jobs:
     if: github.event_name != 'issues'   # Issue close 이벤트 시 실행 안 함 (초안 중복 방지)
     timeout-minutes: 90   # Google Play 2세션 추가로 여유 확보
 
+    permissions:
+      contents: write       # run_log.json 커밋 푸시용
+      issues: write         # GitHub Issue 생성용
+
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
@@ -106,30 +110,43 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: 실행 로그 아티팩트 업로드
+      # run_log.json을 저장소에 커밋 — send-final-on-approval job이 참조하기 위해 필요
+      - name: run_log.json 커밋 & 푸시
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-log-${{ github.run_id }}
-          path: logs/run_log.json
-          retention-days: 30
-          if-no-files-found: ignore
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add logs/run_log.json
+          git diff --cached --quiet && exit 0
+          git commit -m "[자동] run_log.json 업데이트 — $(date -u +%Y-%m-%d)"
+          # 충돌 방지: 다른 job이 먼저 push한 경우 rebase 후 push
+          git pull --rebase origin main
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────
   # GitHub Issue close 감지 → 최종 이메일 발송
   # ─────────────────────────────────────────────
   send-final-on-approval:
     runs-on: ubuntu-22.04
-    # #fix7: [피쳐드 확인] 제목 이슈만 트리거 (다른 이슈 close 시 불필요한 실행 방지)
+    # [피쳐드 확인] 제목 이슈만 트리거 (다른 이슈 close 시 불필요한 실행 방지)
     if: |
       github.event_name == 'issues' &&
       github.event.action == 'closed' &&
       github.event.issue.state_reason == 'completed' &&
       startsWith(github.event.issue.title, '[피쳐드 확인]')
 
+    permissions:
+      contents: write       # history.csv 커밋 푸시용
+      actions: read         # 아티팩트 다운로드용
+
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
+        with:
+          # run_log.json이 커밋된 최신 커밋을 가져오기 위해 pull 포함
+          fetch-depth: 1
 
       - name: Python 3.11 설정
         uses: actions/setup-python@v5
@@ -140,13 +157,39 @@ jobs:
       - name: 의존성 설치
         run: pip install -r requirements.txt
 
+      # screenshots는 run_log.json과 달리 커밋되지 않으므로 아티팩트에서 복원
+      # GitHub API로 가장 최근 monitor workflow의 screenshots 아티팩트 다운로드
+      - name: 최신 screenshots 아티팩트 다운로드
+        run: |
+          mkdir -p screenshots
+          # 최신 성공한 monitor 실행 ID 조회
+          RUN_ID=$(gh api repos/${{ github.repository }}/actions/workflows/monitor.yml/runs \
+            --jq '[.workflow_runs[] | select(.event=="schedule" or .event=="workflow_dispatch") | select(.conclusion=="success")] | first | .id' \
+            2>/dev/null || echo "")
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "최신 성공 실행 없음 — 아티팩트 다운로드 스킵"
+          else
+            ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts \
+              --jq "[.artifacts[] | select(.name | startswith(\"screenshots-\"))] | first | .id" \
+              2>/dev/null || echo "")
+            if [ -z "$ARTIFACT_ID" ] || [ "$ARTIFACT_ID" = "null" ]; then
+              echo "screenshots 아티팩트 없음 — 스킵"
+            else
+              gh api repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip \
+                > /tmp/screenshots.zip 2>/dev/null && \
+                unzip -o /tmp/screenshots.zip -d screenshots/ || \
+                echo "아티팩트 압축 해제 실패 — 스킵"
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 최종 이메일 발송
         run: python send_final.py
         env:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
-          RESEND_MODE: ${{ github.event.inputs.resend_mode }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           CLOSED_BY: ${{ github.event.sender.login }}
@@ -156,7 +199,9 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add logs/history.csv
-          git diff --cached --quiet || git commit -m "[자동] history.csv 업데이트 — $(date -u +%Y-%m-%d)"
+          git diff --cached --quiet && exit 0
+          git commit -m "[자동] history.csv 업데이트 — $(date -u +%Y-%m-%d)"
+          git pull --rebase origin main
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -77,9 +77,20 @@ def save_run_log(log: dict):
     LOGS_DIR.mkdir(exist_ok=True)
     existing = {}
     if RUN_LOG_PATH.exists():
-        with open(RUN_LOG_PATH, encoding="utf-8") as f:
-            existing = json.load(f)
-    existing.update(log)
+        try:
+            with open(RUN_LOG_PATH, encoding="utf-8") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = {}
+    # 중첩 병합: 동일 날짜 키의 games 딕셔너리는 덮어쓰지 않고 병합
+    for date_key, date_val in log.items():
+        if date_key in existing:
+            if "games" in date_val and "games" in existing[date_key]:
+                existing[date_key]["games"].update(date_val["games"])
+            else:
+                existing[date_key].update(date_val)
+        else:
+            existing[date_key] = date_val
     with open(RUN_LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(existing, f, ensure_ascii=False, indent=2)
 
@@ -144,8 +155,9 @@ def scroll_element_horizontal(page, element):
 
 
 def click_next_buttons(page, section_el):
-    """섹션 내 Next 버튼 끝까지 클릭"""
-    while True:
+    """섹션 내 Next 버튼 끝까지 클릭 (무한루프 방지: MAX_SCROLL_STEPS 제한)"""
+    steps = 0
+    while steps < MAX_SCROLL_STEPS:
         try:
             btn = section_el.query_selector(
                 '[aria-label="Next"], [aria-label="다음"], '
@@ -158,6 +170,7 @@ def click_next_buttons(page, section_el):
                 break
             btn.click()
             rand_delay(400, 800)
+            steps += 1
         except Exception:
             break
 
@@ -185,12 +198,14 @@ def collect_app_names_in_section(section_el) -> list[dict]:
                 if inner:
                     name = inner.split("\n")[0].strip()
 
-            # 번들 ID 추출 — href에서 파싱 또는 data 속성
+            # 앱스토어 숫자 ID 추출 — href의 /id{숫자} 부분
+            # config의 bundle_ids.apple 에는 이 숫자 ID를 저장해야 함
+            # 예: https://apps.apple.com/kr/app/game-name/id1234567890 → "1234567890"
             href = link.get_attribute("href") or ""
-            # #fix1: group(1)로 숫자 ID만 추출 (group(0)은 "/id12345" 전체라 매칭 불가)
             bundle_match = re.search(r'/id(\d+)', href)
             if bundle_match:
                 bundle_id = bundle_match.group(1)
+            # data-bundle-id 속성이 있으면 우선 사용 (일부 구간에서 역DNS 형식 제공)
             bundle_attr = link.get_attribute("data-bundle-id")
             if bundle_attr:
                 bundle_id = bundle_attr
@@ -243,7 +258,8 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
     [{"game": ..., "country": ..., "tab": ..., "section": ..., "screenshot": ...}]
     """
     results = []
-    processed_sections = set()
+    processed_sections = set()   # 섹션 중복 처리 방지
+    seen_game_sections = set()   # (game_id, section_name) 중복 결과 방지
 
     def process_sections():
         try:
@@ -282,10 +298,10 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
                             continue
                         if is_my_game(app["name"], app["bundle_id"], country, game, store):
                             # 이미 이 섹션에서 이 게임을 찾은 경우 스킵
-                            dup_key = f"{game['id']}_{section_name}"
-                            if dup_key in processed_sections:
+                            dup_key = (game["id"], section_name)
+                            if dup_key in seen_game_sections:
                                 continue
-                            processed_sections.add(dup_key)
+                            seen_game_sections.add(dup_key)
 
                             print(f"  ✓ 발견: {game['default_name']} / {country.upper()} / {tab} / {section_name}")
                             screenshot = capture_section(section_el, country, tab, section_name, game["id"])

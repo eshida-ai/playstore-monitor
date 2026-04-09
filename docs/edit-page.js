@@ -98,10 +98,15 @@ async function loadData() {
 
     if (gameLog) {
       if (gameLog.github_issue_url) issueUrl = gameLog.github_issue_url;
-      entries = (gameLog.found || []).map(r => ({
-        country: r.country,
-        tab: r.tab,
-        section: r.section,
+      // 신규 구조: apple_found / google_found 분리, 구버전 호환: found
+      const appleRaw  = gameLog.apple_found  || [];
+      const googleRaw = gameLog.google_found || [];
+      const rawList   = gameLog.found ? gameLog.found : [...appleRaw, ...googleRaw];
+      entries = rawList.map(r => ({
+        country:    r.country,
+        tab:        r.tab || '',
+        section:    r.section,
+        store:      r.store || 'apple',
         screenshot: r.screenshot || null,
       }));
     } else {

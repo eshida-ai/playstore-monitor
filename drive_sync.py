@@ -203,7 +203,9 @@ def _warn_invalid_files(invalid_files: list, config: dict):
         print(f"    - {f}")
 
     # 경고 이메일 발송
+    # 수신자는 config.json이 아닌 환경변수 RECIPIENTS_CONFIG에서 로드 (보안 설계)
     try:
+        import json as _json
         import os
         from mailer import Mailer
         mailer = Mailer(
@@ -211,10 +213,15 @@ def _warn_invalid_files(invalid_files: list, config: dict):
             app_password=os.environ.get("GMAIL_APP_PASSWORD", ""),
             config=config,
         )
+        raw = os.environ.get("RECIPIENTS_CONFIG", "{}")
+        try:
+            recipients_map = _json.loads(raw)
+        except Exception:
+            recipients_map = {}
         all_draft_recipients = list({
             email
-            for game in config.get("games", [])
-            for email in game.get("recipients", {}).get("draft", [])
+            for rcp in recipients_map.values()
+            for email in rcp.get("draft", [])
         })
         if all_draft_recipients:
             invalid_list = "\n".join(f"  - {f}" for f in invalid_files)

@@ -372,9 +372,9 @@ function renderGameCards() {
           <button class="store-toggle ${storeGoogle}" id="toggle-google-${idx}" onclick="toggleStore(${idx},'google')">🎮 Google Play</button>
         </div>
 
-        <label>Apple 번들 ID</label>
+        <label>Apple 앱스토어 숫자 ID (예: 1234567890)</label>
         <input type="text" value="${esc(game.bundle_ids?.apple || '')}"
-               placeholder="com.company.gamename"
+               placeholder="1234567890 (앱스토어 URL의 /id 뒤 숫자)"
                onchange="setBundleId(${idx},'apple',this.value)">
 
         <label>Google 패키지명</label>
@@ -537,7 +537,11 @@ async function renderImageList() {
     const allFound = [];
     for (const [gameId, gameLog] of Object.entries(todayLog.games || {})) {
       const game = config?.games?.find(g => g.id === gameId);
-      for (const r of (gameLog.found || [])) {
+      // 신규 구조: apple_found / google_found 분리, 구버전 호환: found
+      const appleFound  = gameLog.apple_found  || [];
+      const googleFound = gameLog.google_found || [];
+      const combined    = gameLog.found ? gameLog.found : [...appleFound, ...googleFound];
+      for (const r of combined) {
         allFound.push({ ...r, game_name: game?.default_name || gameId });
       }
     }
