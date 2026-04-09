@@ -39,6 +39,30 @@ USER_AGENTS = [
 ]
 
 MAX_RETRIES = 3
+MAX_SCROLL_STEPS = 20  # 무한 lazy-load 방지
+
+# #fix6: 국가별 Apple Store 로케일 매핑
+APPLE_LOCALE_MAP = {
+    "kr": "ko-KR",
+    "us": "en-US",
+    "jp": "ja-JP",
+    "tw": "zh-TW",
+    "th": "th-TH",
+    "gb": "en-GB",
+    "de": "de-DE",
+    "fr": "fr-FR",
+    "ca": "en-CA",
+    "au": "en-AU",
+    "sg": "en-SG",
+    "mx": "es-MX",
+    "br": "pt-BR",
+    "ru": "ru-RU",
+    "in": "en-IN",
+    "id": "id-ID",
+    "sa": "ar-SA",
+    "ae": "ar-AE",
+    "cn": "zh-CN",
+}
 
 
 # ─────────────────────────────────────────────
@@ -98,33 +122,23 @@ def is_my_game(app_name: str, bundle_id: str | None, country: str, game: dict, s
 # ─────────────────────────────────────────────
 # 스크롤 헬퍼
 # ─────────────────────────────────────────────
-def scroll_page_to_bottom(page):
-    """전체 페이지 세로 스크롤 (새 콘텐츠 없을 때까지)"""
-    prev_height = 0
-    while True:
-        page.evaluate("window.scrollBy(0, 600)")
-        rand_delay(500, 1000)
-        curr_height = page.evaluate("document.body.scrollHeight")
-        if curr_height == prev_height:
-            break
-        prev_height = curr_height
-
-
 def scroll_element_horizontal(page, element):
     """요소 내 가로 스크롤 끝까지"""
     try:
         page.evaluate("""(el) => {
             el.scrollLeft = 0;
         }""", element)
-        while True:
+        steps = 0
+        while steps < MAX_SCROLL_STEPS:
             prev_scroll = page.evaluate("(el) => el.scrollLeft", element)
             page.evaluate("""(el) => {
                 el.scrollLeft += 400;
             }""", element)
-            rand_delay(300, 600)
+            rand_delay(150, 300)  # 가로 스크롤 딜레이 단축
             curr_scroll = page.evaluate("(el) => el.scrollLeft", element)
             if curr_scroll == prev_scroll:
                 break
+            steps += 1
     except Exception:
         pass
 
@@ -173,9 +187,10 @@ def collect_app_names_in_section(section_el) -> list[dict]:
 
             # 번들 ID 추출 — href에서 파싱 또는 data 속성
             href = link.get_attribute("href") or ""
+            # #fix1: group(1)로 숫자 ID만 추출 (group(0)은 "/id12345" 전체라 매칭 불가)
             bundle_match = re.search(r'/id(\d+)', href)
             if bundle_match:
-                bundle_id = bundle_match.group(0)  # Apple은 숫자 ID, 번들ID와 다름
+                bundle_id = bundle_match.group(1)
             bundle_attr = link.get_attribute("data-bundle-id")
             if bundle_attr:
                 bundle_id = bundle_attr
@@ -285,9 +300,10 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
         except Exception as e:
             print(f"    [섹션 처리 오류] {e}")
 
-    # 페이지 세로 스크롤하며 섹션 반복 처리
+    # #fix5: MAX_SCROLL_STEPS 제한으로 무한루프 방지
     prev_height = 0
-    while True:
+    scroll_count = 0
+    while scroll_count < MAX_SCROLL_STEPS:
         process_sections()
         page.evaluate("window.scrollBy(0, 600)")
         rand_delay(500, 1000)
@@ -295,6 +311,7 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
         if curr_height == prev_height:
             break
         prev_height = curr_height
+        scroll_count += 1
 
     # 마지막 한 번 더
     process_sections()
@@ -307,34 +324,31 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
 def scan_with_retry(browser_context, url: str, country: str, tab: str,
                     active_games: list, store: str) -> list[dict]:
     for attempt in range(1, MAX_RETRIES + 1):
+        # #fix9: try/finally로 페이지 리소스 누수 차단
+        page = browser_context.new_page()
         try:
-            page = browser_context.new_page()
             page.set_extra_http_headers({
                 "Accept-Language": f"{country},en;q=0.9",
             })
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             rand_delay(1000, 2000)
             results = scan_page(page, url, country, tab, active_games, store)
-            page.close()
             return results
         except PlaywrightTimeoutError as e:
             print(f"  [타임아웃 {attempt}/{MAX_RETRIES}] {url}: {e}")
-            try:
-                page.close()
-            except Exception:
-                pass
             if attempt == MAX_RETRIES:
                 return []
             rand_delay(2000, 4000)
         except Exception as e:
             print(f"  [오류 {attempt}/{MAX_RETRIES}] {url}: {e}")
+            if attempt == MAX_RETRIES:
+                return []
+            rand_delay(2000, 4000)
+        finally:
             try:
                 page.close()
             except Exception:
                 pass
-            if attempt == MAX_RETRIES:
-                return []
-            rand_delay(2000, 4000)
     return []
 
 
@@ -443,13 +457,15 @@ def main():
 
     print(f"활성 게임: {[g['default_name'] for g in active_games]}")
 
-    # Google Drive 수동 이미지 수집
+    # #fix13: Apple 게임이 있을 때만 Drive 수동 이미지 수집
     manual_images = []
-    try:
-        manual_images = collect_manual_images(today_str.replace("-", ""))
-        print(f"Drive 수동 이미지: {len(manual_images)}개")
-    except Exception as e:
-        print(f"[Drive 수집 실패] {e}")
+    apple_games_active = [g for g in active_games if "apple" in g.get("stores", [])]
+    if apple_games_active:
+        try:
+            manual_images = collect_manual_images(today_str.replace("-", ""))
+            print(f"Drive 수동 이미지: {len(manual_images)}개")
+        except Exception as e:
+            print(f"[Drive 수집 실패] {e}")
 
     # config에서 Apple 설정 로드 (하위호환: 최상위 countries/tabs도 fallback)
     apple_cfg = config.get("apple", {})
@@ -464,31 +480,35 @@ def main():
             headless=True,
             args=["--no-sandbox", "--disable-setuid-sandbox"],
         )
-        context = browser.new_context(
-            user_agent=random.choice(USER_AGENTS),
-            viewport={"width": 390, "height": 844},  # iPhone 14 해상도
-            locale="ko-KR",
-        )
 
         for game in active_games:
-            if "apple" not in game.get("stores", ["apple"]):
+            if "apple" not in game.get("stores", []):
                 continue
             print(f"\n--- {game['default_name']} Apple 탐색 ---")
             for country in apple_countries:
-                for tab in apple_tabs:
-                    url_template = APPLE_URLS.get(tab)
-                    if not url_template:
-                        continue
-                    url = url_template.format(country=country)
-                    print(f"  탐색: {country.upper()} / {tab} → {url}")
+                # #fix6: 국가별 로케일로 컨텍스트 생성 (ko-KR 고정 제거)
+                locale = APPLE_LOCALE_MAP.get(country, "en-US")
+                context = browser.new_context(
+                    user_agent=random.choice(USER_AGENTS),
+                    viewport={"width": 390, "height": 844},
+                    locale=locale,
+                )
+                try:
+                    for tab in apple_tabs:
+                        url_template = APPLE_URLS.get(tab)
+                        if not url_template:
+                            continue
+                        url = url_template.format(country=country)
+                        print(f"  탐색: {country.upper()} / {tab} → {url}")
 
-                    found = scan_with_retry(context, url, country, tab, [game], "apple")
-                    for r in found:
-                        r["store"] = "apple"
-                    apple_results[game["id"]].extend(found)
-                    rand_delay(500, 1500)
+                        found = scan_with_retry(context, url, country, tab, [game], "apple")
+                        for r in found:
+                            r["store"] = "apple"
+                        apple_results[game["id"]].extend(found)
+                        rand_delay(500, 1500)
+                finally:
+                    context.close()
 
-        context.close()
         browser.close()
 
     # ── Google Play 스캔 ────────────────────────
@@ -580,9 +600,12 @@ if __name__ == "__main__":
                 app_password=os.environ.get("GMAIL_APP_PASSWORD", ""),
                 config=config,
             )
+            # #fix3: config["games"]에는 recipients 키 없음 → env에서 직접 로드
+            recipients_map = load_recipients_from_env()
             all_recipients = set()
             for g in config["games"]:
-                all_recipients.update(g["recipients"].get("draft", []))
+                rcp = recipients_map.get(g["id"], {"draft": []})
+                all_recipients.update(rcp.get("draft", []))
             mailer.send_error_email(
                 recipients=list(all_recipients),
                 error_message=str(e),

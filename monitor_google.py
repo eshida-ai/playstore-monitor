@@ -29,9 +29,17 @@ USER_AGENTS = [
 ]
 
 MAX_RETRIES = 3
+MAX_SCROLL_STEPS = 20  # 무한 lazy-load 방지
 PLAY_URL = "https://play.google.com/store/games?device=phone&hl={hl}&gl={country}"
 
-BANNER_LABEL = {"kr": "배너", "us": "Banner", "jp": "バナー"}
+# #fix4: tw/th 배너 라벨 추가
+BANNER_LABEL = {
+    "kr": "배너",
+    "us": "Banner",
+    "jp": "バナー",
+    "tw": "橫幅廣告",
+    "th": "แบนเนอร์",
+}
 
 
 # ─────────────────────────────────────────────
@@ -114,7 +122,7 @@ def get_section_label(page, container_el, country: str,
     """
     섹션 레이블 결정:
     - 외부 제목이 target_sections 중 하나와 일치 → 해당 섹션명 반환
-    - 외부 제목 없음(배너) → "배너"/"Banner" 반환
+    - 외부 제목 없음(배너) → 국가별 배너 라벨 반환
     - 외부 제목은 있지만 target_sections에 없음 → None (스킵)
     """
     title = _get_section_title_outside(page, container_el)
@@ -123,9 +131,9 @@ def get_section_label(page, container_el, country: str,
         # 외부 제목 없음 → 배너로 분류
         return BANNER_LABEL.get(country, "Banner")
 
-    # target_sections 중 하나와 일치하는지 확인 (부분 포함 허용)
+    # #fix20: target→title 방향만 허용 (title in ts 방향은 오탐 원인)
     for ts in target_sections:
-        if ts.strip() in title or title in ts.strip():
+        if ts.strip() in title:
             return ts
 
     return None  # 관심 없는 섹션 → 스킵
@@ -192,13 +200,15 @@ def scroll_horizontal_fully(page, container_el):
     """컨테이너 내 가로 스크롤을 끝까지 이동"""
     try:
         page.evaluate("(el) => { el.scrollLeft = 0; }", container_el)
-        while True:
+        steps = 0
+        while steps < MAX_SCROLL_STEPS:
             prev = page.evaluate("(el) => el.scrollLeft", container_el)
             page.evaluate("(el) => { el.scrollLeft += 350; }", container_el)
-            rand_delay(300, 600)
+            rand_delay(150, 300)  # 가로 스크롤은 짧게
             curr = page.evaluate("(el) => el.scrollLeft", container_el)
             if curr == prev:
                 break
+            steps += 1
     except Exception:
         pass
 
@@ -274,9 +284,10 @@ def scan_google_page(page, country: str, active_games: list,
             except Exception as e:
                 print(f"    [컨테이너 처리 오류] {e}")
 
-    # 페이지 세로 스크롤하며 반복
+    # #fix5: MAX_SCROLL_STEPS 제한으로 무한루프 방지
     prev_height = 0
-    while True:
+    scroll_count = 0
+    while scroll_count < MAX_SCROLL_STEPS:
         process_containers()
         page.evaluate("window.scrollBy(0, 600)")
         rand_delay(500, 1000)
@@ -284,6 +295,7 @@ def scan_google_page(page, country: str, active_games: list,
         if curr_height == prev_height:
             break
         prev_height = curr_height
+        scroll_count += 1
 
     process_containers()
     return results
@@ -323,40 +335,25 @@ def login_google(page, account: dict) -> bool:
 # ─────────────────────────────────────────────
 # 단일 국가 스캔 (재시도 포함)
 # ─────────────────────────────────────────────
-def scan_country_with_retry(pw, country: str, hl: str,
-                            active_games: list, target_sections: list[str],
-                            logged_in_context=None) -> list[dict]:
-    """단일 국가 URL 탐색. 비로그인/로그인 컨텍스트 공용."""
+def scan_country_with_retry(context, country: str, hl: str,
+                            active_games: list, target_sections: list[str]) -> list[dict]:
+    """
+    단일 국가 URL 탐색. context는 항상 외부에서 전달 (좀비 브라우저 방지).
+    try/finally로 페이지 리소스 누수 차단.
+    """
     url = PLAY_URL.format(hl=hl, country=country.upper())
 
     for attempt in range(1, MAX_RETRIES + 1):
-        page = None
+        page = context.new_page()
         try:
-            if logged_in_context:
-                page = logged_in_context.new_page()
-            else:
-                # 시크릿(비로그인) 페이지
-                page = pw.chromium.launch(
-                    headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox"],
-                ).new_context(
-                    user_agent=random.choice(USER_AGENTS),
-                    viewport=VIEWPORT,
-                ).new_page()
-
             page.set_extra_http_headers({"Accept-Language": f"{hl},{hl[:2]};q=0.9,en;q=0.8"})
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             rand_delay(1500, 2500)
-
             results = scan_google_page(page, country, active_games, target_sections)
-            page.close()
             return results
 
         except PlaywrightTimeoutError as e:
             print(f"  [타임아웃 {attempt}/{MAX_RETRIES}] {url}: {e}")
-            if page:
-                try: page.close()
-                except Exception: pass
             if attempt == MAX_RETRIES:
                 return []
             rand_delay(3000, 5000)
@@ -364,12 +361,15 @@ def scan_country_with_retry(pw, country: str, hl: str,
         except Exception as e:
             print(f"  [오류 {attempt}/{MAX_RETRIES}] {url}: {e}")
             traceback.print_exc()
-            if page:
-                try: page.close()
-                except Exception: pass
             if attempt == MAX_RETRIES:
                 return []
             rand_delay(3000, 5000)
+
+        finally:
+            try:
+                page.close()
+            except Exception:
+                pass
 
     return []
 
@@ -393,32 +393,45 @@ def run_google_monitoring(config: dict, active_games: list) -> dict[str, list]:
         return {}
 
     game_results: dict[str, list] = {g["id"]: [] for g in google_games}
+    # #fix14: 크로스 세션 중복 추적용 persistent set
+    seen_keys: dict[str, set] = {g["id"]: set() for g in google_games}
     account = load_google_account()
+
+    def merge_results(found: list):
+        for r in found:
+            gid = r["game_id"]
+            if gid not in game_results:
+                continue
+            key = (r["country"], r["section"], r["game_id"])
+            if key not in seen_keys[gid]:
+                seen_keys[gid].add(key)
+                game_results[gid].append(r)
 
     with sync_playwright() as pw:
         # ── 세션 1: 비로그인 (시크릿) ──────────────────
+        # #fix2: 브라우저를 루프 밖에서 1번만 생성 → 좀비 프로세스 방지
         print("\n=== Google Play 세션 1: 비로그인 ===")
-        for country in countries:
-            hl = locale_map.get(country, "en")
-            target_sections = sections_map.get(country, [])
-            print(f"  탐색: {country.upper()} (hl={hl})")
-
-            found = scan_country_with_retry(
-                pw, country, hl, google_games, target_sections,
-                logged_in_context=None,
-            )
-            for r in found:
-                gid = r["game_id"]
-                if gid in game_results:
-                    # 중복 제거: (country, section, game_id) 기준
-                    existing_keys = {
-                        (x["country"], x["section"], x["game_id"])
-                        for x in game_results[gid]
-                    }
-                    if (r["country"], r["section"], r["game_id"]) not in existing_keys:
-                        game_results[gid].append(r)
-
-            rand_delay(1000, 2000)
+        incognito_browser = pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox"],
+        )
+        incognito_context = incognito_browser.new_context(
+            user_agent=random.choice(USER_AGENTS),
+            viewport=VIEWPORT,
+        )
+        try:
+            for country in countries:
+                hl = locale_map.get(country, "en")
+                target_sections = sections_map.get(country, [])
+                print(f"  탐색: {country.upper()} (hl={hl})")
+                found = scan_country_with_retry(
+                    incognito_context, country, hl, google_games, target_sections,
+                )
+                merge_results(found)
+                rand_delay(1000, 2000)
+        finally:
+            incognito_context.close()
+            incognito_browser.close()
 
         # ── 세션 2: 계정A 로그인 ───────────────────────
         if account:
@@ -431,36 +444,26 @@ def run_google_monitoring(config: dict, active_games: list) -> dict[str, list]:
                 user_agent=random.choice(USER_AGENTS),
                 viewport=VIEWPORT,
             )
-            login_page = context.new_page()
-            login_ok = login_google(login_page, account)
-            login_page.close()
+            try:
+                login_page = context.new_page()
+                login_ok = login_google(login_page, account)
+                login_page.close()
 
-            if login_ok:
-                for country in countries:
-                    hl = locale_map.get(country, "en")
-                    target_sections = sections_map.get(country, [])
-                    print(f"  탐색: {country.upper()} (hl={hl}, 로그인)")
-
-                    found = scan_country_with_retry(
-                        pw, country, hl, google_games, target_sections,
-                        logged_in_context=context,
-                    )
-                    for r in found:
-                        gid = r["game_id"]
-                        if gid in game_results:
-                            existing_keys = {
-                                (x["country"], x["section"], x["game_id"])
-                                for x in game_results[gid]
-                            }
-                            if (r["country"], r["section"], r["game_id"]) not in existing_keys:
-                                game_results[gid].append(r)
-
-                    rand_delay(1000, 2000)
-            else:
-                print("  [Google Play] 로그인 실패 — 세션2 스킵")
-
-            context.close()
-            browser.close()
+                if login_ok:
+                    for country in countries:
+                        hl = locale_map.get(country, "en")
+                        target_sections = sections_map.get(country, [])
+                        print(f"  탐색: {country.upper()} (hl={hl}, 로그인)")
+                        found = scan_country_with_retry(
+                            context, country, hl, google_games, target_sections,
+                        )
+                        merge_results(found)
+                        rand_delay(1000, 2000)
+                else:
+                    print("  [Google Play] 로그인 실패 — 세션2 스킵")
+            finally:
+                context.close()
+                browser.close()
         else:
             print("\n=== Google Play 세션 2: GOOGLE_ACCOUNT_A 없음 — 스킵 ===")
 
