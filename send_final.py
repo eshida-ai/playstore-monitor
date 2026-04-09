@@ -72,27 +72,52 @@ def find_game_by_name(game_name: str, config: dict) -> dict | None:
     return None
 
 
+def _migrate_history_if_needed():
+    """history.csv에 store 컬럼이 없으면 자동 추가 (구버전 호환)"""
+    import csv
+    if not HISTORY_PATH.exists():
+        return
+    with open(HISTORY_PATH, "r", encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+    if not rows or "store" in rows[0]:
+        return
+    # store 컬럼을 game_name 뒤(index 3)에 삽입
+    new_rows = []
+    for i, row in enumerate(rows):
+        if i == 0:
+            new_rows.append(row[:3] + ["store"] + row[3:])
+        else:
+            new_rows.append(row[:3] + ["apple"] + row[3:])  # 기존 데이터는 apple로 간주
+    with open(HISTORY_PATH, "w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerows(new_rows)
+    print(f"[history.csv] store 컬럼 마이그레이션 완료 ({len(rows)-1}행)")
+
+
 def append_to_history(date_str: str, game: dict, found_list: list,
                       approved_by: str, final_sent_at: str):
     import csv
     LOGS_DIR.mkdir(exist_ok=True)
+    _migrate_history_if_needed()
     is_new = not HISTORY_PATH.exists()
     with open(HISTORY_PATH, "a", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         if is_new:
-            writer.writerow(["date", "game_id", "game_name", "country", "tab", "section",
+            writer.writerow(["date", "game_id", "game_name", "store",
+                             "country", "tab", "section",
                              "approved_by", "final_sent_at"])
         if found_list:
             for r in found_list:
                 writer.writerow([
                     date_str, game["id"], game["default_name"],
+                    r.get("store", "apple"),
                     r.get("country", ""), r.get("tab", ""), r.get("section", ""),
                     approved_by, final_sent_at,
                 ])
         else:
             writer.writerow([
                 date_str, game["id"], game["default_name"],
-                "", "", "노출 없음", approved_by, final_sent_at,
+                "all", "", "", "노출 없음", approved_by, final_sent_at,
             ])
 
 
@@ -125,24 +150,44 @@ def main():
     # 실행 로그에서 해당 날짜·게임의 found_list 복원
     run_log = load_run_log()
     game_log = run_log.get(date_str, {}).get("games", {}).get(game["id"], {})
-    found_raw = game_log.get("found", [])
 
-    # found_list 재구성 (screenshot 파일 찾기)
-    found_list = []
-    for r in found_raw:
-        screenshot = None
-        # screenshots/ 에서 해당 국가·탭·섹션 파일 탐색
-        pattern = f"{r['country']}_{r['tab']}_*_{game['id']}.png"
+    # apple_found / google_found 분리 저장 구조 (신규)
+    # 구버전 호환: "found" 키만 있는 경우 전부 apple로 처리
+    apple_raw  = game_log.get("apple_found", game_log.get("found", []))
+    google_raw = game_log.get("google_found", [])
+
+    def _resolve_screenshot(pattern: str) -> str | None:
         matches = list(SCREENSHOTS_DIR.glob(pattern))
-        if matches:
-            screenshot = matches[0].name
-        found_list.append({
-            "country": r["country"],
-            "tab": r["tab"],
-            "section": r["section"],
-            "game_id": game["id"],
-            "screenshot": screenshot,
+        return matches[0].name if matches else None
+
+    # Apple found_list 재구성
+    apple_found = []
+    for r in apple_raw:
+        pattern = f"{r['country']}_{r.get('tab', '*')}_*_{game['id']}.png"
+        apple_found.append({
+            "country":    r["country"],
+            "tab":        r.get("tab", ""),
+            "section":    r["section"],
+            "store":      "apple",
+            "game_id":    game["id"],
+            "screenshot": _resolve_screenshot(pattern),
         })
+
+    # Google found_list 재구성
+    google_found = []
+    for r in google_raw:
+        safe_section = re.sub(r'[\s\\/:*?"<>|]', '_', r["section"])
+        pattern = f"google_{r['country']}_{safe_section}_{game['id']}.png"
+        google_found.append({
+            "country":    r["country"],
+            "section":    r["section"],
+            "store":      "google",
+            "game_id":    game["id"],
+            "screenshot": _resolve_screenshot(pattern),
+        })
+
+    found_list = apple_found + google_found
+    print(f"복원된 결과: Apple {len(apple_found)}건 / Google {len(google_found)}건")
 
     # 최종 이메일 발송
     from mailer import Mailer

@@ -16,6 +16,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 from drive_sync import collect_manual_images
 from mailer import Mailer
+from monitor_google import run_google_monitoring
 
 # ─────────────────────────────────────────────
 # 상수
@@ -415,7 +416,7 @@ def main():
     today = date.today()
     today_str = today.isoformat()
     run_at = datetime.utcnow().isoformat() + "Z"
-    print(f"=== 앱스토어 피쳐드 모니터링 시작: {today_str} ===")
+    print(f"=== 피쳐드 모니터링 시작 (Apple + Google Play): {today_str} ===")
 
     config = load_config()
     gmail_pw = os.environ.get("GMAIL_APP_PASSWORD", "")
@@ -450,8 +451,13 @@ def main():
     except Exception as e:
         print(f"[Drive 수집 실패] {e}")
 
-    # 게임별 결과 집계
-    game_results: dict[str, list] = {g["id"]: [] for g in active_games}
+    # config에서 Apple 설정 로드 (하위호환: 최상위 countries/tabs도 fallback)
+    apple_cfg = config.get("apple", {})
+    apple_countries = apple_cfg.get("countries", config.get("countries", []))
+    apple_tabs = apple_cfg.get("tabs", config.get("tabs", []))
+
+    # ── Apple App Store 스캔 ────────────────────
+    apple_results: dict[str, list] = {g["id"]: [] for g in active_games}
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
@@ -465,42 +471,54 @@ def main():
         )
 
         for game in active_games:
-            print(f"\n--- {game['default_name']} 탐색 시작 ---")
-            for store in game.get("stores", ["apple"]):
-                if store != "apple":
-                    print(f"  [{store}] 향후 확장 예정 — 스킵")
-                    continue
+            if "apple" not in game.get("stores", ["apple"]):
+                continue
+            print(f"\n--- {game['default_name']} Apple 탐색 ---")
+            for country in apple_countries:
+                for tab in apple_tabs:
+                    url_template = APPLE_URLS.get(tab)
+                    if not url_template:
+                        continue
+                    url = url_template.format(country=country)
+                    print(f"  탐색: {country.upper()} / {tab} → {url}")
 
-                for country in config["countries"]:
-                    for tab in config["tabs"]:
-                        url_template = APPLE_URLS.get(tab)
-                        if not url_template:
-                            continue
-                        url = url_template.format(country=country)
-                        print(f"  탐색: {country.upper()} / {tab} → {url}")
-
-                        found = scan_with_retry(context, url, country, tab, [game], store)
-                        game_results[game["id"]].extend(found)
-                        rand_delay(500, 1500)
+                    found = scan_with_retry(context, url, country, tab, [game], "apple")
+                    for r in found:
+                        r["store"] = "apple"
+                    apple_results[game["id"]].extend(found)
+                    rand_delay(500, 1500)
 
         context.close()
         browser.close()
 
-    # 수동 이미지를 게임별로 분류하여 results에 병합
+    # ── Google Play 스캔 ────────────────────────
+    print("\n=== Google Play 모니터링 시작 ===")
+    try:
+        google_results = run_google_monitoring(config, active_games)
+    except Exception as e:
+        print(f"[Google Play 스캔 실패] {e}")
+        traceback.print_exc()
+        google_results = {}
+
+    # ── 수동 이미지 병합 (Apple 결과에 추가) ────
     for img in manual_images:
         game_id = img.get("game_id")
-        if game_id and game_id in game_results:
-            game_results[game_id].append(img)
+        if game_id and game_id in apple_results:
+            img.setdefault("store", "apple")
+            apple_results[game_id].append(img)
 
-    # 이메일 발송 및 로그 기록
+    # ── 이메일 발송 및 로그 기록 ────────────────
     log_games = {}
     github_owner = config.get("github", {}).get("owner", "")
     github_repo = config.get("github", {}).get("repo", "")
 
     for game in active_games:
         gid = game["id"]
-        found_list = game_results[gid]
-        print(f"\n{game['default_name']}: {len(found_list)}개 노출 발견")
+        a_found = apple_results.get(gid, [])
+        g_found = google_results.get(gid, [])
+        found_list = a_found + g_found  # 이메일용 통합 목록
+
+        print(f"\n{game['default_name']}: Apple {len(a_found)}건 / Google {len(g_found)}건")
 
         try:
             issue_number, issue_url = mailer.create_github_issue(
@@ -518,9 +536,13 @@ def main():
                 issue_number=issue_number,
             )
             log_games[gid] = {
-                "found": [
-                    {"country": r["country"], "tab": r["tab"], "section": r["section"]}
-                    for r in found_list
+                "apple_found": [
+                    {"country": r["country"], "tab": r.get("tab", ""), "section": r["section"], "store": "apple"}
+                    for r in a_found
+                ],
+                "google_found": [
+                    {"country": r["country"], "section": r["section"], "store": "google"}
+                    for r in g_found
                 ],
                 "draft_sent_at": draft_sent_at,
                 "github_issue": issue_number,

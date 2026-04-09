@@ -5,7 +5,7 @@
   },
   "drive": {
     "folder_path": "피쳐드모니터링/수동추가",
-    "filename_format": "{country}_{tab}_{section}_{game}.png"
+    "filename_format": "{store}_{country}_{section}_{game}.png"
   },
   "github": {
     "owner": "eshida-ai",
@@ -30,8 +30,35 @@
       }
     }
   ],
-  "countries": ["kr", "us", "jp"],
-  "tabs": ["today", "games"],
+  "apple": {
+    "countries": ["kr", "us", "jp"],
+    "tabs": ["today", "games"]
+  },
+  "google_play": {
+    "countries": ["kr", "us", "jp"],
+    "sections": {
+      "kr": [
+        "진행 중인 이벤트",
+        "새로 출시된 게임",
+        "출시 예정! 사전등록 하세요"
+      ],
+      "us": [
+        "Events happening now",
+        "Newly launched games",
+        "Pre-registration games"
+      ],
+      "jp": [
+        "イベント開催中",
+        "事前登録できるゲーム",
+        "新規リリースのゲーム"
+      ]
+    },
+    "locale_map": {
+      "kr": "ko",
+      "us": "en",
+      "jp": "ja"
+    }
+  },
   "email": {
     "sender": "flyhighgamesmain@gmail.com",
     "app_password": "${GMAIL_APP_PASSWORD}"

@@ -1,4 +1,4 @@
-name: App Store Featured Monitor
+name: 피쳐드 모니터링 (App Store + Google Play)
 
 on:
   schedule:
@@ -16,7 +16,7 @@ jobs:
   monitor:
     runs-on: ubuntu-22.04
     if: github.event_name != 'issues'   # Issue close 이벤트 시 실행 안 함 (초안 중복 방지)
-    timeout-minutes: 60
+    timeout-minutes: 90   # Google Play 2세션 추가로 여유 확보
 
     steps:
       - name: 저장소 체크아웃
@@ -41,6 +41,7 @@ jobs:
         env:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}
@@ -60,6 +61,7 @@ jobs:
         env:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}
@@ -78,6 +80,7 @@ jobs:
         env:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}
