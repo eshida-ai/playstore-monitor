@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>피쳐드 확인 처리</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Apple SD Gothic Neo', Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.1);
+      padding: 40px 36px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 20px; color: #222; margin-bottom: 8px; }
+    .subtitle { font-size: 14px; color: #777; margin-bottom: 28px; line-height: 1.6; }
+    .token-section { text-align: left; margin-bottom: 20px; }
+    .token-section label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
+    .token-section input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+    .token-section input:focus { outline: none; border-color: #0066cc; }
+    .token-hint { font-size: 12px; color: #999; margin-top: 5px; line-height: 1.5; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      margin-top: 12px;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .88; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-green  { background: #27ae60; color: #fff; }
+    .btn-gray   { background: #95a5a6; color: #fff; }
+    .status {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+    .status.success { background: #eafaf1; border: 1px solid #27ae60; color: #1a7a45; }
+    .status.error   { background: #fdf2f2; border: 1px solid #e74c3c; color: #c0392b; }
+    .status.loading { background: #f0f4ff; border: 1px solid #0066cc; color: #004499; }
+    .meta { font-size: 12px; color: #aaa; margin-top: 20px; }
+  </style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="icon" id="icon">🍎</div>
+  <h1 id="title">피쳐드 확인 처리</h1>
+  <p class="subtitle" id="subtitle">잠시만 기다려주세요...</p>
+</div>
+
+<script>
+const REPO_OWNER = 'eshida-ai';
+const REPO_NAME  = 'playstore-monitor';
+
+const params     = new URLSearchParams(location.search);
+const ISSUE_NUM  = params.get('issue');
+const ACTION     = params.get('action');   // 'complete' | 'not_planned'
+
+const isComplete    = ACTION === 'complete';
+const actionLabel   = isComplete ? '최종 이메일 발송' : '최종 발송 없이 종료';
+const actionIcon    = isComplete ? '✅' : '🚫';
+const stateReason   = isComplete ? 'completed' : 'not_planned';
+
+// ── 초기 렌더링 ──────────────────────────────
+document.getElementById('icon').textContent    = actionIcon;
+document.getElementById('title').textContent   = actionLabel;
+document.getElementById('subtitle').textContent =
+  `Issue #${ISSUE_NUM || '?'} 를 처리합니다.\nGitHub Token이 필요합니다.`;
+
+const card = document.getElementById('card');
+
+// 토큰 입력 폼 렌더링
+const savedToken = localStorage.getItem('gh_token') || '';
+
+card.innerHTML += `
+  <div class="token-section">
+    <label>GitHub Personal Access Token</label>
+    <input type="password" id="gh-token" value="${savedToken}"
+           placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+    <p class="token-hint">
+      토큰은 이 기기에만 저장됩니다. (repo 권한 필요)<br>
+      <a href="https://github.com/settings/tokens" target="_blank">토큰 발급 →</a>
+    </p>
+  </div>
+  <button class="btn ${isComplete ? 'btn-green' : 'btn-gray'}" id="action-btn" onclick="handleAction()">
+    ${actionIcon} ${actionLabel}
+  </button>
+  <div class="status" id="status"></div>
+  <p class="meta">Issue #${ISSUE_NUM || '?'} · ${REPO_OWNER}/${REPO_NAME}</p>
+`;
+
+// ── 처리 함수 ──────────────────────────────
+async function handleAction() {
+  const tokenEl  = document.getElementById('gh-token');
+  const statusEl = document.getElementById('status');
+  const btn      = document.getElementById('action-btn');
+  const token    = tokenEl.value.trim();
+
+  if (!token) {
+    showStatus('error', '❌ GitHub Token을 입력해주세요.');
+    return;
+  }
+  if (!ISSUE_NUM) {
+    showStatus('error', '❌ URL에 issue 파라미터가 없습니다.');
+    return;
+  }
+
+  // 토큰 저장
+  localStorage.setItem('gh_token', token);
+
+  btn.disabled = true;
+  showStatus('loading', '⏳ 처리 중...');
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${ISSUE_NUM}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ state: 'closed', state_reason: stateReason }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+
+    if (isComplete) {
+      showStatus('success',
+        '✅ 처리 완료!\n\n최종 이메일이 곧 자동 발송됩니다.\n(GitHub Actions 실행까지 약 1~2분 소요)');
+    } else {
+      showStatus('success', '🚫 처리 완료!\n\n최종 이메일 발송 없이 종료되었습니다.');
+    }
+
+    document.getElementById('icon').textContent = '✅';
+    document.getElementById('title').textContent = '처리 완료';
+    btn.style.display = 'none';
+
+  } catch (e) {
+    showStatus('error', `❌ 처리 실패: ${e.message}\n\nToken 권한(repo)을 확인해주세요.`);
+    btn.disabled = false;
+  }
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = `status ${type}`;
+  el.style.display = 'block';
+  el.style.whiteSpace = 'pre-line';
+  el.textContent = msg;
+}
+</script>
+</body>
+</html>

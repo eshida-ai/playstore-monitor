@@ -200,7 +200,6 @@ class Mailer:
         # 초안 전용: 수정 버튼 + 승인 버튼
         draft_section = ""
         if is_draft:
-            approve_href = issue_url if issue_url else "#"
             # 수정 페이지 URL 구성
             owner = self.config.get("github", {}).get("owner", "")
             repo  = self.config.get("github", {}).get("repo", "")
@@ -212,6 +211,9 @@ class Mailer:
             })
             edit_href = f"https://{owner}.github.io/{repo}/edit.html?{edit_params}"
 
+            complete_href = f"https://{owner}.github.io/{repo}/action.html?issue={issue_number}&action=complete"
+            not_planned_href = f"https://{owner}.github.io/{repo}/action.html?issue={issue_number}&action=not_planned"
+
             draft_section = f"""
             <div style="margin:24px 0;padding:16px;background:#fffbf0;border:1px solid #f0c040;border-radius:8px;">
               <p style="font-size:13px;color:#856404;margin:0 0 16px 0;font-weight:bold;">⚠️ 초안 검토 — 아래 버튼을 눌러 처리 방법을 선택하세요</p>
@@ -221,20 +223,19 @@ class Mailer:
                           text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
                   ✏️ 내역 수정
                 </a>
-                <a href="{approve_href}"
+                <a href="{complete_href}"
                    style="display:inline-block;padding:10px 24px;background:#27ae60;color:#fff;
                           text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
                   ✅ 이상 없음 — 최종 이메일 발송
                 </a>
-                <a href="{approve_href}"
+                <a href="{not_planned_href}"
                    style="display:inline-block;padding:10px 24px;background:#95a5a6;color:#fff;
                           text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">
                   🚫 최종 발송 없이 종료
                 </a>
               </div>
               <p style="margin:14px 0 0 0;font-size:12px;color:#999;line-height:1.6;">
-                ✅ <strong>최종 이메일 발송</strong>: 링크 클릭 후 GitHub에서 <strong>Close as completed</strong> 선택<br>
-                🚫 <strong>최종 발송 없이 종료</strong>: 링크 클릭 후 GitHub에서 <strong>Close as not planned</strong> 선택
+                버튼을 클릭하면 GitHub 이동 없이 바로 처리됩니다. (GitHub Token 필요 — 최초 1회 입력)
               </p>
             </div>"""
 
