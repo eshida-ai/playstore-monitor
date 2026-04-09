@@ -10,6 +10,30 @@ const REPO_OWNER = 'eshida-ai';
 const REPO_NAME  = 'playstore-monitor';
 const CONFIG_PATH_IN_REPO = 'config.json';
 
+// 국가 코드 → { 라벨, Google Play locale }
+// 여기에 없는 국가는 UI 드롭다운에 표시되지 않음
+const KNOWN_COUNTRIES = {
+  kr: { label: '🇰🇷 한국 (KR)',        locale: 'ko' },
+  us: { label: '🇺🇸 미국 (US)',        locale: 'en' },
+  jp: { label: '🇯🇵 일본 (JP)',        locale: 'ja' },
+  gb: { label: '🇬🇧 영국 (GB)',        locale: 'en' },
+  de: { label: '🇩🇪 독일 (DE)',        locale: 'de' },
+  fr: { label: '🇫🇷 프랑스 (FR)',      locale: 'fr' },
+  au: { label: '🇦🇺 호주 (AU)',        locale: 'en' },
+  ca: { label: '🇨🇦 캐나다 (CA)',      locale: 'en' },
+  sg: { label: '🇸🇬 싱가포르 (SG)',    locale: 'en' },
+  tw: { label: '🇹🇼 대만 (TW)',        locale: 'zh' },
+  cn: { label: '🇨🇳 중국 (CN)',        locale: 'zh' },
+  th: { label: '🇹🇭 태국 (TH)',        locale: 'th' },
+  id: { label: '🇮🇩 인도네시아 (ID)', locale: 'id' },
+  mx: { label: '🇲🇽 멕시코 (MX)',      locale: 'es' },
+  br: { label: '🇧🇷 브라질 (BR)',      locale: 'pt' },
+  ru: { label: '🇷🇺 러시아 (RU)',      locale: 'ru' },
+  in: { label: '🇮🇳 인도 (IN)',        locale: 'en' },
+  tr: { label: '🇹🇷 터키 (TR)',        locale: 'tr' },
+  sa: { label: '🇸🇦 사우디 (SA)',      locale: 'ar' },
+};
+
 // 실제 배포 시 위 값을 채우거나, URL 파라미터로 받아도 됨
 // 예: ?owner=myorg&repo=appstore-monitor
 
@@ -117,25 +141,45 @@ function switchTab(name) {
 // ─────────────────────────────────────────────
 // ══ 스토어 설정 (국가 관리) ══
 // ─────────────────────────────────────────────
+function _storeSettingsOpen() {
+  document.getElementById('store-settings-body')?.classList.add('open');
+  document.getElementById('store-settings-header')?.classList.add('open');
+}
+
+function _countrySelectOptions(excludeList) {
+  return Object.entries(KNOWN_COUNTRIES)
+    .filter(([code]) => !excludeList.includes(code))
+    .map(([code, info]) => `<option value="${code}">${info.label}</option>`)
+    .join('');
+}
+
 function renderStoreSettings() {
   const container = document.getElementById('store-settings-card');
   if (!container || !config) return;
 
-  const appleCountries  = config.apple?.countries || [];
-  const appleTabs       = config.apple?.tabs || [];
+  const appleCountries  = config.apple?.countries  || [];
+  const appleTabs       = config.apple?.tabs        || [];
   const googleCountries = config.google_play?.countries || [];
 
-  const appleChips = appleCountries.map((v, i) =>
-    `<span class="chip chip-apple">${v.toUpperCase()}<button onclick="removeAppleCountry(${i})">×</button></span>`
-  ).join('');
+  // 칩 렌더
+  const appleChips = appleCountries.map((v, i) => {
+    const label = KNOWN_COUNTRIES[v]?.label || v.toUpperCase();
+    return `<span class="chip chip-apple">${label}<button onclick="removeAppleCountry(${i})" title="삭제">×</button></span>`;
+  }).join('');
 
   const tabChips = appleTabs.map((v, i) =>
-    `<span class="chip chip-tab">${v}<button onclick="removeAppleTab(${i})">×</button></span>`
+    `<span class="chip chip-tab">${v}<button onclick="removeAppleTab(${i})" title="삭제">×</button></span>`
   ).join('');
 
-  const googleChips = googleCountries.map((v, i) =>
-    `<span class="chip chip-google">${v.toUpperCase()}<button onclick="removeGoogleCountry(${i})">×</button></span>`
-  ).join('');
+  const googleChips = googleCountries.map((v, i) => {
+    const info = KNOWN_COUNTRIES[v];
+    const label = info ? `${info.label} <small style="opacity:.7">(${info.locale})</small>` : v.toUpperCase();
+    return `<span class="chip chip-google">${label}<button onclick="removeGoogleCountry(${i})" title="삭제">×</button></span>`;
+  }).join('');
+
+  // 아직 추가 안 된 국가만 드롭다운에 표시
+  const appleOptions  = _countrySelectOptions(appleCountries);
+  const googleOptions = _countrySelectOptions(googleCountries);
 
   container.innerHTML = `
     <div class="card" style="margin-bottom:16px;">
@@ -153,23 +197,25 @@ function renderStoreSettings() {
 
         <label style="margin-top:0;">모니터링 국가</label>
         <div style="margin-top:4px;">
-          ${appleChips}
+          ${appleChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
           <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <input id="apple-country-input" type="text" placeholder="예: gb"
-                   style="width:64px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;"
-                   onkeydown="if(event.key==='Enter') addAppleCountry()">
+            <select id="apple-country-select"
+                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+              <option value="">국가 선택</option>
+              ${appleOptions}
+            </select>
             <button class="btn-sm primary" onclick="addAppleCountry()">+ 추가</button>
           </span>
         </div>
 
         <label>확인 탭</label>
         <div style="margin-top:4px;">
-          ${tabChips}
+          ${tabChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
           <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <select id="apple-tab-input"
-                    style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
-              <option value="today">today</option>
-              <option value="games">games</option>
+            <select id="apple-tab-select"
+                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+              ${!appleTabs.includes('today') ? '<option value="today">today (오늘)</option>' : ''}
+              ${!appleTabs.includes('games') ? '<option value="games">games (게임 차트)</option>' : ''}
             </select>
             <button class="btn-sm primary" onclick="addAppleTab()">+ 추가</button>
           </span>
@@ -182,19 +228,20 @@ function renderStoreSettings() {
 
         <label style="margin-top:0;">모니터링 국가</label>
         <div style="margin-top:4px;">
-          ${googleChips}
+          ${googleChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
           <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <input id="google-country-input" type="text" placeholder="예: gb"
-                   style="width:64px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;"
-                   onkeydown="if(event.key==='Enter') addGoogleCountry()">
-            <button class="btn-sm primary" onclick="addGoogleCountry()" style="background:#01875f;border-color:#01875f;">+ 추가</button>
+            <select id="google-country-select"
+                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+              <option value="">국가 선택</option>
+              ${googleOptions}
+            </select>
+            <button class="btn-sm primary" onclick="addGoogleCountry()"
+                    style="background:#01875f;border-color:#01875f;">+ 추가</button>
           </span>
         </div>
-
-        <div style="margin-top:12px;padding:10px 14px;background:#f0fff8;border:1px solid #a0dcc5;border-radius:6px;font-size:12px;color:#1a5c3a;line-height:1.6;">
-          💡 국가를 추가하면 <code>google_play.locale_map</code>에도 수동으로 언어 코드를 추가해야 합니다.<br>
-          예: <code>"gb": "en"</code> — locale_map 수정은 config.json 직접 편집 또는 GitHub에서 수정
-        </div>
+        <p style="font-size:12px;color:#888;margin:8px 0 0 0;">
+          ※ 국가 선택 시 언어 코드(locale)가 자동 설정됩니다. 저장 버튼을 눌러야 반영됩니다.
+        </p>
       </div>
     </div>`;
 }
@@ -207,61 +254,63 @@ function toggleStoreSettings() {
   body.classList.toggle('open');
 }
 
-// Apple 국가
+// ── Apple 국가 ──
 function addAppleCountry() {
-  const val = (document.getElementById('apple-country-input')?.value || '').trim().toLowerCase();
-  if (!val || val.length > 3) return;
+  const val = document.getElementById('apple-country-select')?.value;
+  if (!val) return;
   if (!config.apple) config.apple = { countries: [], tabs: [] };
   if (!config.apple.countries.includes(val)) {
     config.apple.countries.push(val);
     renderStoreSettings();
-    document.getElementById('store-settings-body')?.classList.add('open');
-    document.getElementById('store-settings-header')?.classList.add('open');
+    _storeSettingsOpen();
   }
 }
 function removeAppleCountry(idx) {
   config.apple?.countries?.splice(idx, 1);
   renderStoreSettings();
-  document.getElementById('store-settings-body')?.classList.add('open');
-  document.getElementById('store-settings-header')?.classList.add('open');
+  _storeSettingsOpen();
 }
 
-// Apple 탭
+// ── Apple 탭 ──
 function addAppleTab() {
-  const val = document.getElementById('apple-tab-input')?.value;
+  const val = document.getElementById('apple-tab-select')?.value;
   if (!val) return;
   if (!config.apple) config.apple = { countries: [], tabs: [] };
   if (!config.apple.tabs.includes(val)) {
     config.apple.tabs.push(val);
     renderStoreSettings();
-    document.getElementById('store-settings-body')?.classList.add('open');
-    document.getElementById('store-settings-header')?.classList.add('open');
+    _storeSettingsOpen();
   }
 }
 function removeAppleTab(idx) {
   config.apple?.tabs?.splice(idx, 1);
   renderStoreSettings();
-  document.getElementById('store-settings-body')?.classList.add('open');
-  document.getElementById('store-settings-header')?.classList.add('open');
+  _storeSettingsOpen();
 }
 
-// Google Play 국가
+// ── Google Play 국가 (locale_map 자동 설정/삭제) ──
 function addGoogleCountry() {
-  const val = (document.getElementById('google-country-input')?.value || '').trim().toLowerCase();
-  if (!val || val.length > 3) return;
+  const val = document.getElementById('google-country-select')?.value;
+  if (!val) return;
   if (!config.google_play) config.google_play = { countries: [], sections: {}, locale_map: {} };
+  if (!config.google_play.locale_map) config.google_play.locale_map = {};
   if (!config.google_play.countries.includes(val)) {
     config.google_play.countries.push(val);
+    // locale 자동 설정 — KNOWN_COUNTRIES 기준
+    config.google_play.locale_map[val] = KNOWN_COUNTRIES[val]?.locale || 'en';
     renderStoreSettings();
-    document.getElementById('store-settings-body')?.classList.add('open');
-    document.getElementById('store-settings-header')?.classList.add('open');
+    _storeSettingsOpen();
   }
 }
 function removeGoogleCountry(idx) {
+  const country = config.google_play?.countries?.[idx];
   config.google_play?.countries?.splice(idx, 1);
+  // locale_map에서도 제거
+  if (country && config.google_play?.locale_map) {
+    delete config.google_play.locale_map[country];
+  }
   renderStoreSettings();
-  document.getElementById('store-settings-body')?.classList.add('open');
-  document.getElementById('store-settings-header')?.classList.add('open');
+  _storeSettingsOpen();
 }
 
 // ─────────────────────────────────────────────
