@@ -53,7 +53,9 @@
     "countries": [
       "kr",
       "us",
-      "jp"
+      "jp",
+      "tw",
+      "th"
     ],
     "tabs": [
       "today",
@@ -64,7 +66,9 @@
     "countries": [
       "kr",
       "us",
-      "jp"
+      "jp",
+      "tw",
+      "th"
     ],
     "sections": {
       "kr": [
@@ -86,7 +90,9 @@
     "locale_map": {
       "kr": "ko",
       "us": "en",
-      "jp": "ja"
+      "jp": "ja",
+      "tw": "zh",
+      "th": "th"
     }
   },
   "email": {
