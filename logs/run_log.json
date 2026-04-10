@@ -22,5 +22,20 @@
         "final_sent_at": null
       }
     }
+  },
+  "2026-04-10": {
+    "status": "success",
+    "run_at": "2026-04-10T01:09:22.626739Z",
+    "games": {
+      "Colorsweeper": {
+        "apple_found": [],
+        "google_found": [],
+        "draft_sent_at": "2026-04-10T02:28:35.498880Z",
+        "github_issue": 13,
+        "approved_by": null,
+        "approved_at": null,
+        "final_sent_at": null
+      }
+    }
   }
 }
