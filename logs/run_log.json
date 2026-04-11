@@ -37,5 +37,10 @@
         "final_sent_at": null
       }
     }
+  },
+  "2026-04-11": {
+    "status": "no_active_games",
+    "run_at": "2026-04-11T01:05:16.094456Z",
+    "games": {}
   }
 }
