@@ -364,20 +364,21 @@ def login_google(page, account: dict) -> bool:
 
         # 이메일 입력 후 Enter (버튼이 not visible인 경우 대응)
         page.fill('input[type="email"]', account["email"])
-        rand_delay(800, 1200)
-        page.keyboard.press('Enter')
-        rand_delay(1500, 2500)
-
-        # 비밀번호 입력 후 Enter
-        page.wait_for_selector('input[type="password"]', timeout=15000)
-        page.fill('input[type="password"]', account["password"])
-        rand_delay(800, 1200)
+        rand_delay(1000, 1500)
         page.keyboard.press('Enter')
         rand_delay(2000, 3000)
 
+        # 비밀번호 필드 대기 (계정 선택 화면 등 중간 단계 대응)
+        page.wait_for_selector('input[type="password"]', timeout=30000)
+        rand_delay(500, 1000)
+        page.fill('input[type="password"]', account["password"])
+        rand_delay(800, 1200)
+        page.keyboard.press('Enter')
+        rand_delay(3000, 5000)
+
         # 로그인 확인 (URL이 accounts.google.com을 벗어나면 성공)
-        page.wait_for_url(re.compile(r'^(?!.*accounts\.google\.com/signin)'),
-                          timeout=10000)
+        page.wait_for_url(re.compile(r'^(?!.*accounts\.google\.com)'),
+                          timeout=15000)
         print(f"  [Google 로그인] 성공")
         return True
     except Exception as e:
