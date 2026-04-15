@@ -4,7 +4,7 @@
     "run_time_kst": "09:00"
   },
   "drive": {
-    "folder_path": "피쳐드모니터링/수동추가",
+    "folder_path": "í¼ì³ëëª¨ëí°ë§/ìëì¶ê°",
     "filename_format": "{store}_{country}_{section}_{game}.png"
   },
   "github": {
@@ -14,23 +14,31 @@
   },
   "games": [
     {
-      "id": "star sailors",
-      "default_name": "star sailors",
+      "id": "Star Sailors",
+      "default_name": "Star Sailors",
       "stores": {
         "apple": {
-          "countries": ["kr", "us", "jp", "tw", "th"],
-          "tabs": ["today", "games"]
+          "countries": [
+            "kr",
+            "us",
+            "jp",
+            "tw",
+            "th"
+          ],
+          "tabs": [
+            "games"
+          ]
         }
       },
-      "active_from": "2026-04-07",
-      "active_until": "2026-04-09",
+      "active_from": "2026-04-14",
+      "active_until": "2026-04-15",
       "names": {
         "kr": "스타 세일러",
         "us": "star sailors",
         "jp": ""
       },
       "bundle_ids": {
-        "apple": "",
+        "apple": "6749404408",
         "google": ""
       }
     },
@@ -39,12 +47,20 @@
       "default_name": "Colorsweeper",
       "stores": {
         "google": {
-          "countries": ["kr", "us", "jp", "tw", "th"],
-          "sections": ["events", "new_games", "preregistration", "be_first"]
+          "countries": [
+            "us",
+            "jp",
+            "tw",
+            "th"
+          ],
+          "sections": [
+            "events",
+            "new_games"
+          ]
         }
       },
-      "active_from": "2026-04-09",
-      "active_until": "2026-04-10",
+      "active_from": "2026-04-14",
+      "active_until": "2026-04-15",
       "names": {
         "kr": "컬러스위퍼",
         "us": "ColorSweeper"
@@ -58,36 +74,35 @@
   "google_play": {
     "sections": {
       "events": {
-        "kr": "진행 중인 이벤트",
+        "kr": "ì§í ì¤ì¸ ì´ë²¤í¸",
         "us": "Events happening now",
-        "jp": "イベント開催中",
-        "tw": "活動進行中",
-        "th": "กิจกรรมที่จัดอยู่"
+        "jp": "ã¤ãã³ãéå¬ä¸­",
+        "tw": "æ´»åé²è¡ä¸­",
+        "th": "à¸à¸´à¸à¸à¸£à¸£à¸¡à¸à¸µà¹à¸à¸±à¸à¸­à¸¢à¸¹à¹"
       },
       "new_games": {
-        "kr": "새로 출시된 게임",
+        "kr": "ìë¡ ì¶ìë ê²ì",
         "us": "Newly launched games",
-        "jp": "新規リリースのゲーム",
-        "tw": "新上架遊戲",
+        "jp": "æ°è¦ãªãªã¼ã¹ã®ã²ã¼ã ",
+        "tw": "æ°ä¸æ¶éæ²",
         "th": "Newly launched games"
       },
       "preregistration": {
-        "kr": "출시 예정! 사전 등록 하세요",
+        "kr": "ì¶ì ìì ! ì¬ì  ë±ë¡ íì¸ì",
         "us": "Pre-registration games",
-        "jp": "事前登録できるゲーム",
-        "tw": "預先註冊的遊戲",
+        "jp": "äºåç»é²ã§ããã²ã¼ã ",
+        "tw": "é åè¨»åçéæ²",
         "th": "Pre-registration games"
       },
       "be_first": {
-        "kr": "가장 먼저 플레이하세요",
+        "kr": "ê°ì¥ ë¨¼ì  íë ì´íì¸ì",
         "us": "Be the first to play",
-        "jp": "いち早くプレイしよう",
-        "tw": "搶先體驗",
-        "th": "เล่นก่อนใคร"
+        "jp": "ãã¡æ©ããã¬ã¤ããã",
+        "tw": "æ¶åé«é©",
+        "th": "à¹à¸¥à¹à¸à¸à¹à¸­à¸à¹à¸à¸£"
       }
     },
     "locale_map": {
-      "kr": "ko",
       "us": "en",
       "jp": "ja",
       "tw": "zh",
