@@ -61,6 +61,25 @@
   "2026-04-15": {
     "status": "no_active_games",
     "run_at": "2026-04-15T01:12:28.421404Z",
-    "games": {}
+    "games": {
+      "Star Sailors": {
+        "apple_found": [],
+        "google_found": [],
+        "draft_sent_at": "2026-04-15T02:37:02.855306Z",
+        "github_issue": 14,
+        "approved_by": null,
+        "approved_at": null,
+        "final_sent_at": null
+      },
+      "Colorsweeper": {
+        "apple_found": [],
+        "google_found": [],
+        "draft_sent_at": "2026-04-15T02:37:03.543027Z",
+        "github_issue": 15,
+        "approved_by": null,
+        "approved_at": null,
+        "final_sent_at": null
+      }
+    }
   }
 }
