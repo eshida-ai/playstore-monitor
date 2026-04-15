@@ -58,6 +58,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
+          GOOGLE_ACCOUNT_B: ${{ secrets.GOOGLE_ACCOUNT_B }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}
@@ -78,6 +79,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
+          GOOGLE_ACCOUNT_B: ${{ secrets.GOOGLE_ACCOUNT_B }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}
@@ -97,6 +99,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           GOOGLE_ACCOUNT_A: ${{ secrets.GOOGLE_ACCOUNT_A }}
+          GOOGLE_ACCOUNT_B: ${{ secrets.GOOGLE_ACCOUNT_B }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECIPIENTS_CONFIG: ${{ secrets.RECIPIENTS_CONFIG }}
           RESEND_MODE: ${{ github.event.inputs.resend_mode }}

@@ -57,15 +57,15 @@ def rand_delay(min_ms: int = 500, max_ms: int = 1500):
     time.sleep(random.randint(min_ms, max_ms) / 1000)
 
 
-def load_google_account() -> dict | None:
-    """GOOGLE_ACCOUNT_A Secret: {"email":"...","password":"..."}"""
-    raw = os.environ.get("GOOGLE_ACCOUNT_A", "")
+def load_google_account(env_key: str) -> dict | None:
+    """Google 계정 Secret 로드: {"email":"...","password":"..."}"""
+    raw = os.environ.get(env_key, "")
     if not raw:
         return None
     try:
         return json.loads(raw)
     except Exception as e:
-        print(f"  [Google 계정] GOOGLE_ACCOUNT_A 파싱 실패: {e}")
+        print(f"  [Google 계정] {env_key} 파싱 실패: {e}")
         return None
 
 
@@ -429,12 +429,91 @@ def scan_country_with_retry(context, country: str, hl: str,
 
 
 # ─────────────────────────────────────────────
+# 단일 계정 스캔 세션
+# ─────────────────────────────────────────────
+def _run_account_session(
+    pw,
+    account: dict,
+    account_label: str,
+    google_games: list,
+    sections_map: dict,
+    locale_map: dict,
+    game_results: dict,
+    seen_keys: dict,
+    found_countries: dict,   # {game_id: set(country)} — 이미 발견된 국가 (스킵 기준)
+):
+    """
+    단일 Google 계정으로 스캔.
+    found_countries에 등록된 (game_id, country)는 이미 A가 발견한 것이므로 스킵.
+    스캔 후 새로 발견한 country를 found_countries에 추가.
+    """
+    print(f"\n=== Google Play: {account_label} 로그인 세션 ===")
+    browser = pw.chromium.launch(
+        headless=True,
+        args=["--no-sandbox", "--disable-setuid-sandbox"],
+    )
+    context = browser.new_context(
+        user_agent=random.choice(USER_AGENTS),
+        viewport=VIEWPORT,
+    )
+    try:
+        login_page = context.new_page()
+        login_ok = login_google(login_page, account)
+        login_page.close()
+
+        if not login_ok:
+            print(f"  [{account_label}] 로그인 실패 — 스킵")
+            return
+
+        for game in google_games:
+            gid = game["id"]
+            game_countries = game.get("stores", {}).get("google", {}).get("countries", [])
+            if not game_countries:
+                continue
+
+            # 이미 발견된 국가 제외
+            already_found = found_countries.get(gid, set())
+            remaining = [c for c in game_countries if c not in already_found]
+            skipped = [c for c in game_countries if c in already_found]
+
+            if skipped:
+                print(f"\n--- {game['default_name']} [{account_label}] ---")
+                print(f"  스킵 (A에서 이미 발견): {[c.upper() for c in skipped]}")
+            if not remaining:
+                print(f"  모든 국가 발견 완료 — {account_label} 스킵")
+                continue
+
+            print(f"\n--- {game['default_name']} [{account_label}] 탐색 ---")
+            for country in remaining:
+                hl = locale_map.get(country, "en")
+                target_sections = get_target_sections_for_game_country(
+                    sections_map, game, country
+                )
+                print(f"  탐색: {country.upper()} (hl={hl}, 섹션 {len(target_sections)}개)")
+                found = scan_country_with_retry(
+                    context, country, hl, [game], target_sections,
+                )
+                for r in found:
+                    key = (r["country"], r["section"], gid)
+                    if gid in game_results and key not in seen_keys[gid]:
+                        seen_keys[gid].add(key)
+                        game_results[gid].append(r)
+                        # 발견된 국가 기록 (다음 계정에서 스킵)
+                        found_countries.setdefault(gid, set()).add(r["country"])
+                rand_delay(1000, 2000)
+
+    finally:
+        context.close()
+        browser.close()
+
+
+# ─────────────────────────────────────────────
 # 메인 진입점
 # ─────────────────────────────────────────────
 def run_google_monitoring(config: dict, active_games: list) -> dict[str, list]:
     """
-    Google Play 모니터링 실행 (계정A 로그인 세션만 사용).
-    게임별 국가/섹션 타입 설정을 준수하여 스캔.
+    Google Play 모니터링 실행.
+    계정A 스캔 후, 발견 못한 국가만 계정B로 추가 스캔.
     반환: {game_id: [result, ...]}
     """
     gp_config = config.get("google_play", {})
@@ -448,57 +527,43 @@ def run_google_monitoring(config: dict, active_games: list) -> dict[str, list]:
 
     game_results: dict[str, list] = {g["id"]: [] for g in google_games}
     seen_keys: dict[str, set] = {g["id"]: set() for g in google_games}
+    # {game_id: set(country)} — 어느 계정이든 게임을 발견한 국가 기록
+    found_countries: dict[str, set] = {}
 
-    account = load_google_account()
-    if not account:
-        print("  [Google Play] GOOGLE_ACCOUNT_A 없음 — 스킵")
+    account_a = load_google_account("GOOGLE_ACCOUNT_A")
+    account_b = load_google_account("GOOGLE_ACCOUNT_B")
+
+    if not account_a and not account_b:
+        print("  [Google Play] GOOGLE_ACCOUNT_A/B 모두 없음 — 스킵")
         return {}
 
     with sync_playwright() as pw:
-        print("\n=== Google Play: 계정A 로그인 세션 ===")
-        browser = pw.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"],
-        )
-        context = browser.new_context(
-            user_agent=random.choice(USER_AGENTS),
-            viewport=VIEWPORT,
-        )
-        try:
-            login_page = context.new_page()
-            login_ok = login_google(login_page, account)
-            login_page.close()
+        if account_a:
+            _run_account_session(
+                pw, account_a, "계정A",
+                google_games, sections_map, locale_map,
+                game_results, seen_keys, found_countries,
+            )
+        else:
+            print("  [Google Play] GOOGLE_ACCOUNT_A 없음 — 계정A 스킵")
 
-            if not login_ok:
-                print("  [Google Play] 로그인 실패 — 스킵")
-                return {}
-
-            for game in google_games:
-                game_countries = game.get("stores", {}).get("google", {}).get("countries", [])
-                if not game_countries:
-                    print(f"  [{game['default_name']}] 설정된 국가 없음 — 스킵")
-                    continue
-                print(f"\n--- {game['default_name']} Google Play 탐색 ---")
-                for country in game_countries:
-                    hl = locale_map.get(country, "en")
-                    target_sections = get_target_sections_for_game_country(
-                        sections_map, game, country
-                    )
-                    print(f"  탐색: {country.upper()} (hl={hl}, 섹션 {len(target_sections)}개)")
-                    found = scan_country_with_retry(
-                        context, country, hl, [game], target_sections,
-                    )
-                    for r in found:
-                        gid = r["game_id"]
-                        key = (r["country"], r["section"], gid)
-                        if gid in game_results and key not in seen_keys[gid]:
-                            seen_keys[gid].add(key)
-                            game_results[gid].append(r)
-                    rand_delay(1000, 2000)
-
-        finally:
-            context.close()
-            browser.close()
+        if account_b:
+            # 모든 게임의 모든 국가가 이미 발견됐으면 계정B 전체 스킵
+            all_covered = all(
+                set(g.get("stores", {}).get("google", {}).get("countries", []))
+                <= found_countries.get(g["id"], set())
+                for g in google_games
+            )
+            if all_covered:
+                print("\n=== 계정A에서 전 국가 발견 완료 — 계정B 스킵 ===")
+            else:
+                _run_account_session(
+                    pw, account_b, "계정B",
+                    google_games, sections_map, locale_map,
+                    game_results, seen_keys, found_countries,
+                )
+        else:
+            print("  [Google Play] GOOGLE_ACCOUNT_B 없음 — 계정B 스킵")
 
     total = sum(len(v) for v in game_results.values())
     print(f"\n[Google Play] 총 {total}건 발견")
