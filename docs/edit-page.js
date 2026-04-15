@@ -42,6 +42,12 @@ let overrideSha = null;
     const el = document.getElementById('github-token');
     if (el) el.value = saved;
   }
+  // 초기 안내 메시지를 양쪽 컨테이너에 표시
+  const msg = '<div class="empty-msg">위에서 토큰을 입력하고 [불러오기]를 눌러주세요.</div>';
+  const ac = document.getElementById('apple-container');
+  const gc = document.getElementById('google-container');
+  if (ac) ac.innerHTML = msg;
+  if (gc) gc.innerHTML = msg;
 })();
 
 function getToken() {
@@ -125,23 +131,45 @@ async function loadData() {
 // 항목 렌더링
 // ─────────────────────────────────────────────
 function renderEntries() {
-  const container = document.getElementById('entries-container');
-  if (!entries.length) {
-    container.innerHTML = '<div class="empty-msg">피쳐드 내역이 없습니다. 아래 [+ 항목 추가]로 직접 입력하세요.</div>';
+  renderStoreEntries('apple');
+  renderStoreEntries('google');
+}
+
+function renderStoreEntries(store) {
+  const containerId = store === 'apple' ? 'apple-container' : 'google-container';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const storeEntries = entries
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => (e.store || 'apple') === store);
+
+  if (!storeEntries.length) {
+    const label = store === 'apple' ? 'Apple' : 'Google Play';
+    container.innerHTML = `<div class="empty-msg">${label} 피쳐드 내역이 없습니다. 아래 [+ 항목 추가]로 직접 입력하세요.</div>`;
     return;
   }
 
-  container.innerHTML = entries.map((e, i) => {
+  container.innerHTML = storeEntries.map(({ e, i }) => {
     const flag = COUNTRY_FLAGS[e.country] || '🌐';
     const countryOpts = COUNTRY_OPTIONS.map(c =>
       `<option value="${c}" ${c === e.country ? 'selected' : ''}>${c.toUpperCase()}</option>`
     ).join('');
-    const tabOpts = TAB_OPTIONS.map(t =>
-      `<option value="${t}" ${t === e.tab ? 'selected' : ''}>${t}</option>`
-    ).join('');
+
+    // Apple만 탭 필드 표시
+    const tabField = store === 'apple' ? `
+      <div>
+        <label>탭</label>
+        <select class="tab-select" onchange="updateEntry(${i},'tab',this.value)">
+          ${TAB_OPTIONS.map(t => `<option value="${t}" ${t === e.tab ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>` : '';
+
+    // Google은 2열 그리드 (탭 없으므로)
+    const gridStyle = store === 'google' ? 'style="grid-template-columns: auto 1fr;"' : '';
 
     return `
-    <div class="entry-row" id="entry-${i}">
+    <div class="entry-row" id="entry-${i}" ${gridStyle}>
       <div class="entry-flag">${flag}</div>
       <div>
         <label>국가</label>
@@ -149,12 +177,7 @@ function renderEntries() {
           ${countryOpts}
         </select>
       </div>
-      <div>
-        <label>탭</label>
-        <select class="tab-select" onchange="updateEntry(${i},'tab',this.value)">
-          ${tabOpts}
-        </select>
-      </div>
+      ${tabField}
       <div style="grid-column:2/-1;">
         <label>섹션명</label>
         <input type="text" value="${esc(e.section)}" placeholder="섹션명 입력"
@@ -260,8 +283,12 @@ async function uploadImage(event, idx) {
   }
 }
 
-function addEntry() {
-  entries.push({ country: 'kr', tab: 'games', section: '', screenshot: null });
+function addEntry(store = 'apple') {
+  if (store === 'google') {
+    entries.push({ country: 'kr', tab: '', section: '', store: 'google', screenshot: null });
+  } else {
+    entries.push({ country: 'kr', tab: 'games', section: '', store: 'apple', screenshot: null });
+  }
   renderEntries();
   // 새 항목으로 스크롤
   const rows = document.querySelectorAll('.entry-row');

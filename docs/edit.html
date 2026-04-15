@@ -80,6 +80,16 @@
       cursor: pointer; color: #0066cc;
     }
     .add-row-btn:hover { background: #f0f6ff; }
+    .add-row-btn.google { color: #01875f; }
+    .add-row-btn.google:hover { background: #f0faf5; }
+
+    .store-header { display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 15px; }
+    .store-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 10px; color: #fff;
+    }
+    .store-badge.apple  { background: #0066cc; }
+    .store-badge.google { background: #01875f; }
 
     .actions {
       display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;
@@ -123,14 +133,29 @@
 </div>
 
 <div class="container">
-  <div class="card" id="entries-card">
-    <h3>피쳐드 내역</h3>
-    <div id="entries-container">
+  <!-- Apple App Store -->
+  <div class="card">
+    <div class="store-header">
+      <span class="store-badge apple">🍎 Apple App Store</span>
+    </div>
+    <div id="apple-container">
       <div class="empty-msg">위에서 토큰을 입력하고 [불러오기]를 눌러주세요.</div>
     </div>
-    <button class="add-row-btn" onclick="addEntry()">+ 항목 추가</button>
+    <button class="add-row-btn" onclick="addEntry('apple')">+ Apple 항목 추가</button>
   </div>
 
+  <!-- Google Play -->
+  <div class="card">
+    <div class="store-header">
+      <span class="store-badge google">🎮 Google Play</span>
+    </div>
+    <div id="google-container">
+      <div class="empty-msg">위에서 토큰을 입력하고 [불러오기]를 눌러주세요.</div>
+    </div>
+    <button class="add-row-btn google" onclick="addEntry('google')">+ Google Play 항목 추가</button>
+  </div>
+
+  <!-- 발송 -->
   <div class="card">
     <h3>발송</h3>
     <div class="actions">
