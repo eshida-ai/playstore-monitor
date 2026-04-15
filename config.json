@@ -16,9 +16,12 @@
     {
       "id": "star sailors",
       "default_name": "star sailors",
-      "stores": [
-        "apple"
-      ],
+      "stores": {
+        "apple": {
+          "countries": ["kr", "us", "jp", "tw", "th"],
+          "tabs": ["today", "games"]
+        }
+      },
       "active_from": "2026-04-07",
       "active_until": "2026-04-09",
       "names": {
@@ -34,9 +37,12 @@
     {
       "id": "Colorsweeper",
       "default_name": "Colorsweeper",
-      "stores": [
-        "google"
-      ],
+      "stores": {
+        "google": {
+          "countries": ["kr", "us", "jp", "tw", "th"],
+          "sections": ["events", "new_games", "preregistration", "be_first"]
+        }
+      },
       "active_from": "2026-04-09",
       "active_until": "2026-04-10",
       "names": {
@@ -49,53 +55,36 @@
       }
     }
   ],
-  "apple": {
-    "countries": [
-      "kr",
-      "us",
-      "jp",
-      "tw",
-      "th"
-    ],
-    "tabs": [
-      "today",
-      "games"
-    ]
-  },
   "google_play": {
-    "countries": [
-      "kr",
-      "us",
-      "jp",
-      "tw",
-      "th"
-    ],
     "sections": {
-      "kr": [
-        "진행 중인 이벤트",
-        "새로 출시된 게임",
-        "출시 예정! 사전 등록 하세요"
-      ],
-      "us": [
-        "Events happening now",
-        "Newly launched games",
-        "Pre-registration games"
-      ],
-      "jp": [
-        "イベント開催中",
-        "事前登録できるゲーム",
-        "新規リリースのゲーム"
-      ],
-      "tw": [
-        "活動進行中",
-        "新上架遊戲",
-        "預先註冊的遊戲"
-      ],
-      "th": [
-        "กิจกรรมที่จัดอยู่",
-        "Newly launched games",
-        "Pre-registration games"
-      ]
+      "events": {
+        "kr": "진행 중인 이벤트",
+        "us": "Events happening now",
+        "jp": "イベント開催中",
+        "tw": "活動進行中",
+        "th": "กิจกรรมที่จัดอยู่"
+      },
+      "new_games": {
+        "kr": "새로 출시된 게임",
+        "us": "Newly launched games",
+        "jp": "新規リリースのゲーム",
+        "tw": "新上架遊戲",
+        "th": "Newly launched games"
+      },
+      "preregistration": {
+        "kr": "출시 예정! 사전 등록 하세요",
+        "us": "Pre-registration games",
+        "jp": "事前登録できるゲーム",
+        "tw": "預先註冊的遊戲",
+        "th": "Pre-registration games"
+      },
+      "be_first": {
+        "kr": "가장 먼저 플레이하세요",
+        "us": "Be the first to play",
+        "jp": "いち早くプレイしよう",
+        "tw": "搶先體驗",
+        "th": "เล่นก่อนใคร"
+      }
     },
     "locale_map": {
       "kr": "ko",

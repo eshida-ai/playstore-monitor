@@ -34,8 +34,13 @@ const KNOWN_COUNTRIES = {
   sa: { label: '🇸🇦 사우디 (SA)',      locale: 'ar' },
 };
 
-// 실제 배포 시 위 값을 채우거나, URL 파라미터로 받아도 됨
-// 예: ?owner=myorg&repo=appstore-monitor
+// Google Play 섹션 타입 정의
+const SECTION_TYPES = {
+  events:          { label: '🎉 이벤트',     en: 'Events happening now' },
+  new_games:       { label: '🆕 신규 출시',   en: 'Newly launched games' },
+  preregistration: { label: '📋 사전등록',    en: 'Pre-registration games' },
+  be_first:        { label: '🥇 최초 플레이', en: 'Be the first to play' },
+};
 
 let config = null;
 let configSha = null;  // GitHub API 업데이트용 파일 SHA
@@ -52,7 +57,6 @@ let configSha = null;  // GitHub API 업데이트용 파일 SHA
     if (el) el.value = saved;
   }
   await loadConfig();
-  renderStoreSettings();
   renderGameCards();
   renderRecipientSelect();
   renderDriveStatus();
@@ -64,7 +68,6 @@ async function reloadConfig() {
   statusEl.textContent = '불러오는 중...';
   statusEl.style.color = '#888';
   await loadConfig();
-  renderStoreSettings();
   renderGameCards();
   renderRecipientSelect();
   statusEl.textContent = '✅ 불러오기 완료';
@@ -110,8 +113,6 @@ function defaultConfig() {
     drive: { folder_path: '피쳐드모니터링/수동추가', filename_format: '{country}_{tab}_{section}_{game}.png' },
     github: { owner: '', repo: '' },
     games: [],
-    countries: ['kr', 'us', 'jp', 'gb', 'de'],
-    tabs: ['today', 'games'],
     email: { sender: '', app_password: '${GMAIL_APP_PASSWORD}' },
   };
 }
@@ -139,181 +140,6 @@ function switchTab(name) {
 }
 
 // ─────────────────────────────────────────────
-// ══ 스토어 설정 (국가 관리) ══
-// ─────────────────────────────────────────────
-function _storeSettingsOpen() {
-  document.getElementById('store-settings-body')?.classList.add('open');
-  document.getElementById('store-settings-header')?.classList.add('open');
-}
-
-function _countrySelectOptions(excludeList) {
-  return Object.entries(KNOWN_COUNTRIES)
-    .filter(([code]) => !excludeList.includes(code))
-    .map(([code, info]) => `<option value="${code}">${info.label}</option>`)
-    .join('');
-}
-
-function renderStoreSettings() {
-  const container = document.getElementById('store-settings-card');
-  if (!container || !config) return;
-
-  const appleCountries  = config.apple?.countries  || [];
-  const appleTabs       = config.apple?.tabs        || [];
-  const googleCountries = config.google_play?.countries || [];
-
-  // 칩 렌더
-  const appleChips = appleCountries.map((v, i) => {
-    const label = KNOWN_COUNTRIES[v]?.label || v.toUpperCase();
-    return `<span class="chip chip-apple">${label}<button onclick="removeAppleCountry(${i})" title="삭제">×</button></span>`;
-  }).join('');
-
-  const tabChips = appleTabs.map((v, i) =>
-    `<span class="chip chip-tab">${v}<button onclick="removeAppleTab(${i})" title="삭제">×</button></span>`
-  ).join('');
-
-  const googleChips = googleCountries.map((v, i) => {
-    const info = KNOWN_COUNTRIES[v];
-    const label = info ? `${info.label} <small style="opacity:.7">(${info.locale})</small>` : v.toUpperCase();
-    return `<span class="chip chip-google">${label}<button onclick="removeGoogleCountry(${i})" title="삭제">×</button></span>`;
-  }).join('');
-
-  // 아직 추가 안 된 국가만 드롭다운에 표시
-  const appleOptions  = _countrySelectOptions(appleCountries);
-  const googleOptions = _countrySelectOptions(googleCountries);
-
-  container.innerHTML = `
-    <div class="card" style="margin-bottom:16px;">
-      <div class="collapsible-header" onclick="toggleStoreSettings()" id="store-settings-header">
-        <span class="chevron">▶</span>
-        <h3 style="margin:0;font-size:15px;">⚙️ 스토어 모니터링 설정</h3>
-        <span style="font-size:12px;color:#aaa;margin-left:8px;">
-          🍎 ${appleCountries.length}개국 &nbsp;|&nbsp; 🎮 ${googleCountries.length}개국
-        </span>
-      </div>
-      <div class="collapsible-body" id="store-settings-body">
-
-        <!-- Apple -->
-        <p style="font-size:13px;font-weight:700;color:#0066cc;margin:16px 0 8px 0;">🍎 Apple App Store</p>
-
-        <label style="margin-top:0;">모니터링 국가</label>
-        <div style="margin-top:4px;">
-          ${appleChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
-          <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <select id="apple-country-select"
-                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
-              <option value="">국가 선택</option>
-              ${appleOptions}
-            </select>
-            <button class="btn-sm primary" onclick="addAppleCountry()">+ 추가</button>
-          </span>
-        </div>
-
-        <label>확인 탭</label>
-        <div style="margin-top:4px;">
-          ${tabChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
-          <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <select id="apple-tab-select"
-                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
-              ${!appleTabs.includes('today') ? '<option value="today">today (오늘)</option>' : ''}
-              ${!appleTabs.includes('games') ? '<option value="games">games (게임 차트)</option>' : ''}
-            </select>
-            <button class="btn-sm primary" onclick="addAppleTab()">+ 추가</button>
-          </span>
-        </div>
-
-        <hr class="sep" style="margin:16px 0;">
-
-        <!-- Google Play -->
-        <p style="font-size:13px;font-weight:700;color:#01875f;margin:0 0 8px 0;">🎮 Google Play</p>
-
-        <label style="margin-top:0;">모니터링 국가</label>
-        <div style="margin-top:4px;">
-          ${googleChips || '<span style="color:#aaa;font-size:13px;">없음</span>'}
-          <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
-            <select id="google-country-select"
-                    style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
-              <option value="">국가 선택</option>
-              ${googleOptions}
-            </select>
-            <button class="btn-sm primary" onclick="addGoogleCountry()"
-                    style="background:#01875f;border-color:#01875f;">+ 추가</button>
-          </span>
-        </div>
-        <p style="font-size:12px;color:#888;margin:8px 0 0 0;">
-          ※ 국가 선택 시 언어 코드(locale)가 자동 설정됩니다. 저장 버튼을 눌러야 반영됩니다.
-        </p>
-      </div>
-    </div>`;
-}
-
-function toggleStoreSettings() {
-  const header = document.getElementById('store-settings-header');
-  const body   = document.getElementById('store-settings-body');
-  if (!header || !body) return;
-  header.classList.toggle('open');
-  body.classList.toggle('open');
-}
-
-// ── Apple 국가 ──
-function addAppleCountry() {
-  const val = document.getElementById('apple-country-select')?.value;
-  if (!val) return;
-  if (!config.apple) config.apple = { countries: [], tabs: [] };
-  if (!config.apple.countries.includes(val)) {
-    config.apple.countries.push(val);
-    renderStoreSettings();
-    _storeSettingsOpen();
-  }
-}
-function removeAppleCountry(idx) {
-  config.apple?.countries?.splice(idx, 1);
-  renderStoreSettings();
-  _storeSettingsOpen();
-}
-
-// ── Apple 탭 ──
-function addAppleTab() {
-  const val = document.getElementById('apple-tab-select')?.value;
-  if (!val) return;
-  if (!config.apple) config.apple = { countries: [], tabs: [] };
-  if (!config.apple.tabs.includes(val)) {
-    config.apple.tabs.push(val);
-    renderStoreSettings();
-    _storeSettingsOpen();
-  }
-}
-function removeAppleTab(idx) {
-  config.apple?.tabs?.splice(idx, 1);
-  renderStoreSettings();
-  _storeSettingsOpen();
-}
-
-// ── Google Play 국가 (locale_map 자동 설정/삭제) ──
-function addGoogleCountry() {
-  const val = document.getElementById('google-country-select')?.value;
-  if (!val) return;
-  if (!config.google_play) config.google_play = { countries: [], sections: {}, locale_map: {} };
-  if (!config.google_play.locale_map) config.google_play.locale_map = {};
-  if (!config.google_play.countries.includes(val)) {
-    config.google_play.countries.push(val);
-    // locale 자동 설정 — KNOWN_COUNTRIES 기준
-    config.google_play.locale_map[val] = KNOWN_COUNTRIES[val]?.locale || 'en';
-    renderStoreSettings();
-    _storeSettingsOpen();
-  }
-}
-function removeGoogleCountry(idx) {
-  const country = config.google_play?.countries?.[idx];
-  config.google_play?.countries?.splice(idx, 1);
-  // locale_map에서도 제거
-  if (country && config.google_play?.locale_map) {
-    delete config.google_play.locale_map[country];
-  }
-  renderStoreSettings();
-  _storeSettingsOpen();
-}
-
-// ─────────────────────────────────────────────
 // ══ 게임 관리 탭 ══
 // ─────────────────────────────────────────────
 const COUNTRY_LABELS = {
@@ -321,6 +147,11 @@ const COUNTRY_LABELS = {
   gb:'🇬🇧 영국(GB)', de:'🇩🇪 독일(DE)', cn:'🇨🇳 중국(CN)',
   tw:'🇹🇼 대만(TW)', th:'🇹🇭 태국(TH)', fr:'🇫🇷 프랑스(FR)',
 };
+
+function _keepCardOpen(idx) {
+  document.getElementById(`card-body-${idx}`)?.classList.add('open');
+  document.querySelector(`#game-card-${idx} .collapsible-header`)?.classList.add('open');
+}
 
 function renderGameCards() {
   const container = document.getElementById('game-cards');
@@ -332,8 +163,11 @@ function renderGameCards() {
   container.innerHTML = config.games.map((game, idx) => {
     const today = new Date().toISOString().slice(0, 10);
     const isActive = game.active_from <= today && today <= game.active_until;
-    const storeApple  = (game.stores || []).includes('apple')  ? 'on' : '';
-    const storeGoogle = (game.stores || []).includes('google') ? 'on' : '';
+
+    // stores가 배열(구버전)이면 객체로 간주하지 않음
+    const stores = (!game.stores || Array.isArray(game.stores)) ? {} : game.stores;
+    const storeApple  = stores.apple  ? 'on' : '';
+    const storeGoogle = stores.google ? 'on' : '';
 
     const nameFields = Object.entries(COUNTRY_LABELS).map(([code, label]) => `
       <div>
@@ -341,6 +175,92 @@ function renderGameCards() {
         <input type="text" value="${esc(game.names?.[code] || '')}"
                onchange="setGameField(${idx},'names','${code}',this.value)">
       </div>`).join('');
+
+    // ── Apple 상세 설정 ──
+    const appleSection = stores.apple ? (() => {
+      const countries = stores.apple.countries || [];
+      const tabs = stores.apple.tabs || [];
+
+      const countryChips = countries.map(c => `
+        <span class="chip chip-apple">${KNOWN_COUNTRIES[c]?.label || c}
+          <button onclick="removeGameCountry(${idx},'apple','${c}')">×</button>
+        </span>`).join('');
+
+      const tabChips = tabs.map(t => `
+        <span class="chip chip-tab">${t}
+          <button onclick="removeGameTab(${idx},'${t}')">×</button>
+        </span>`).join('');
+
+      const countryOptions = Object.entries(KNOWN_COUNTRIES)
+        .filter(([c]) => !countries.includes(c))
+        .map(([c, i]) => `<option value="${c}">${i.label}</option>`).join('');
+
+      return `
+        <div class="store-detail-section">
+          <p style="font-size:12px;font-weight:700;color:#0066cc;margin:12px 0 6px 0;">🍎 Apple 모니터링 국가</p>
+          <div>
+            ${countryChips || '<span style="color:#aaa;font-size:12px;">없음</span>'}
+            <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
+              <select id="apple-country-sel-${idx}"
+                      style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                <option value="">국가 선택</option>
+                ${countryOptions}
+              </select>
+              <button class="btn-sm primary" onclick="addGameCountry(${idx},'apple')">+ 추가</button>
+            </span>
+          </div>
+
+          <p style="font-size:12px;font-weight:700;color:#0066cc;margin:12px 0 6px 0;">🍎 Apple 확인 탭</p>
+          <div>
+            ${tabChips || '<span style="color:#aaa;font-size:12px;">없음</span>'}
+            ${!tabs.includes('today') ? `<button class="btn-sm" onclick="addGameTab(${idx},'today')">+ today</button>` : ''}
+            ${!tabs.includes('games') ? `<button class="btn-sm" onclick="addGameTab(${idx},'games')">+ games</button>` : ''}
+          </div>
+        </div>`;
+    })() : '';
+
+    // ── Google Play 상세 설정 ──
+    const googleSection = stores.google ? (() => {
+      const countries = stores.google.countries || [];
+      const selectedSections = stores.google.sections || Object.keys(SECTION_TYPES);
+
+      const countryChips = countries.map(c => `
+        <span class="chip chip-google">${KNOWN_COUNTRIES[c]?.label || c}
+          <button onclick="removeGameCountry(${idx},'google','${c}')">×</button>
+        </span>`).join('');
+
+      const countryOptions = Object.entries(KNOWN_COUNTRIES)
+        .filter(([c]) => !countries.includes(c))
+        .map(([c, i]) => `<option value="${c}">${i.label}</option>`).join('');
+
+      const sectionCheckboxes = Object.entries(SECTION_TYPES).map(([key, info]) => `
+        <label style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;font-size:13px;cursor:pointer;">
+          <input type="checkbox" ${selectedSections.includes(key) ? 'checked' : ''}
+                 onchange="toggleGameSection(${idx},'${key}',this.checked)">
+          ${info.label}
+          <span style="color:#aaa;font-size:11px;">(${info.en})</span>
+        </label>`).join('');
+
+      return `
+        <div class="store-detail-section">
+          <p style="font-size:12px;font-weight:700;color:#01875f;margin:12px 0 6px 0;">🎮 Google Play 모니터링 국가</p>
+          <div>
+            ${countryChips || '<span style="color:#aaa;font-size:12px;">없음</span>'}
+            <span style="display:inline-flex;align-items:center;gap:4px;margin:3px;">
+              <select id="google-country-sel-${idx}"
+                      style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                <option value="">국가 선택</option>
+                ${countryOptions}
+              </select>
+              <button class="btn-sm" style="background:#01875f;color:#fff;border-color:#01875f;"
+                      onclick="addGameCountry(${idx},'google')">+ 추가</button>
+            </span>
+          </div>
+
+          <p style="font-size:12px;font-weight:700;color:#01875f;margin:12px 0 6px 0;">🎮 모니터링 섹션 선택</p>
+          <div style="line-height:2;">${sectionCheckboxes}</div>
+        </div>`;
+    })() : '';
 
     return `
     <div class="card" id="game-card-${idx}">
@@ -371,6 +291,11 @@ function renderGameCards() {
           <button class="store-toggle ${storeApple}"  id="toggle-apple-${idx}"  onclick="toggleStore(${idx},'apple')">🍎 Apple App Store</button>
           <button class="store-toggle ${storeGoogle}" id="toggle-google-${idx}" onclick="toggleStore(${idx},'google')">🎮 Google Play</button>
         </div>
+
+        ${appleSection}
+        ${googleSection}
+
+        <hr class="sep">
 
         <label>Apple 앱스토어 숫자 ID (예: 1234567890)</label>
         <input type="text" value="${esc(game.bundle_ids?.apple || '')}"
@@ -413,12 +338,88 @@ function setBundleId(idx, store, value) {
 
 function toggleStore(idx, store) {
   const game = config.games[idx];
-  if (!game.stores) game.stores = [];
-  const i = game.stores.indexOf(store);
-  if (i === -1) game.stores.push(store);
-  else          game.stores.splice(i, 1);
-  const btn = document.getElementById(`toggle-${store}-${idx}`);
-  if (btn) btn.classList.toggle('on', game.stores.includes(store));
+  // 구버전 배열 형식도 안전하게 처리
+  if (!game.stores || Array.isArray(game.stores)) game.stores = {};
+  if (game.stores[store]) {
+    delete game.stores[store];
+  } else {
+    game.stores[store] = store === 'apple'
+      ? { countries: [], tabs: [] }
+      : { countries: [], sections: Object.keys(SECTION_TYPES) };
+  }
+  renderGameCards();
+  _keepCardOpen(idx);
+}
+
+// ── 게임별 국가 추가/삭제 ──
+function addGameCountry(idx, store) {
+  const sel = document.getElementById(`${store}-country-sel-${idx}`);
+  const val = sel?.value;
+  if (!val) return;
+  const game = config.games[idx];
+  if (!game.stores || Array.isArray(game.stores)) game.stores = {};
+  if (!game.stores[store]) game.stores[store] = store === 'apple' ? { countries: [], tabs: [] } : { countries: [], sections: Object.keys(SECTION_TYPES) };
+  if (!game.stores[store].countries) game.stores[store].countries = [];
+  if (!game.stores[store].countries.includes(val)) {
+    game.stores[store].countries.push(val);
+    // Google: locale_map 자동 업데이트
+    if (store === 'google') {
+      if (!config.google_play) config.google_play = {};
+      if (!config.google_play.locale_map) config.google_play.locale_map = {};
+      config.google_play.locale_map[val] = KNOWN_COUNTRIES[val]?.locale || 'en';
+    }
+    renderGameCards();
+    _keepCardOpen(idx);
+  }
+}
+
+function removeGameCountry(idx, store, code) {
+  const arr = config.games[idx].stores?.[store]?.countries;
+  if (!arr) return;
+  const i = arr.indexOf(code);
+  if (i !== -1) arr.splice(i, 1);
+  // Google: 다른 게임에서도 안 쓰면 locale_map에서 제거
+  if (store === 'google' && config.google_play?.locale_map) {
+    const usedElsewhere = config.games.some(g =>
+      g.stores?.google?.countries?.includes(code)
+    );
+    if (!usedElsewhere) delete config.google_play.locale_map[code];
+  }
+  renderGameCards();
+  _keepCardOpen(idx);
+}
+
+// ── 게임별 Apple 탭 추가/삭제 ──
+function addGameTab(idx, tab) {
+  const game = config.games[idx];
+  if (!game.stores?.apple) return;
+  if (!game.stores.apple.tabs) game.stores.apple.tabs = [];
+  if (!game.stores.apple.tabs.includes(tab)) {
+    game.stores.apple.tabs.push(tab);
+    renderGameCards();
+    _keepCardOpen(idx);
+  }
+}
+
+function removeGameTab(idx, tab) {
+  const arr = config.games[idx].stores?.apple?.tabs;
+  if (!arr) return;
+  const i = arr.indexOf(tab);
+  if (i !== -1) arr.splice(i, 1);
+  renderGameCards();
+  _keepCardOpen(idx);
+}
+
+// ── 게임별 Google 섹션 토글 ──
+function toggleGameSection(idx, key, checked) {
+  const game = config.games[idx];
+  if (!game.stores?.google) return;
+  if (!game.stores.google.sections) game.stores.google.sections = Object.keys(SECTION_TYPES);
+  const arr = game.stores.google.sections;
+  const i = arr.indexOf(key);
+  if (checked && i === -1) arr.push(key);
+  else if (!checked && i !== -1) arr.splice(i, 1);
+  // 재렌더 없이 상태만 업데이트 (체크박스 자체가 이미 변경됨)
 }
 
 function addGame() {
@@ -427,7 +428,7 @@ function addGame() {
   config.games.push({
     id: `game_${Date.now()}`,
     default_name: '새 게임',
-    stores: ['apple'],
+    stores: { apple: { countries: [], tabs: [] } },
     active_from: today,
     active_until: until,
     names: {},

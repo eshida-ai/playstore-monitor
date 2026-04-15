@@ -294,7 +294,7 @@ def scan_page(page, url: str, country: str, tab: str, active_games: list, store:
 
                 for app in apps:
                     for game in active_games:
-                        if store not in game.get("stores", []):
+                        if store not in game.get("stores", {}):
                             continue
                         if is_my_game(app["name"], app["bundle_id"], country, game, store):
                             # 이미 이 섹션에서 이 게임을 찾은 경우 스킵
@@ -473,20 +473,15 @@ def main():
 
     print(f"활성 게임: {[g['default_name'] for g in active_games]}")
 
-    # #fix13: Apple 게임이 있을 때만 Drive 수동 이미지 수집
+    # Apple 게임이 있을 때만 Drive 수동 이미지 수집
     manual_images = []
-    apple_games_active = [g for g in active_games if "apple" in g.get("stores", [])]
+    apple_games_active = [g for g in active_games if "apple" in g.get("stores", {})]
     if apple_games_active:
         try:
             manual_images = collect_manual_images(today_str.replace("-", ""))
             print(f"Drive 수동 이미지: {len(manual_images)}개")
         except Exception as e:
             print(f"[Drive 수집 실패] {e}")
-
-    # config에서 Apple 설정 로드 (하위호환: 최상위 countries/tabs도 fallback)
-    apple_cfg = config.get("apple", {})
-    apple_countries = apple_cfg.get("countries", config.get("countries", []))
-    apple_tabs = apple_cfg.get("tabs", config.get("tabs", []))
 
     # ── Apple App Store 스캔 ────────────────────
     apple_results: dict[str, list] = {g["id"]: [] for g in active_games}
@@ -498,11 +493,18 @@ def main():
         )
 
         for game in active_games:
-            if "apple" not in game.get("stores", []):
+            game_stores = game.get("stores", {})
+            if "apple" not in game_stores:
+                continue
+            apple_cfg = game_stores["apple"]
+            apple_countries = apple_cfg.get("countries", [])
+            apple_tabs = apple_cfg.get("tabs", [])
+            if not apple_countries or not apple_tabs:
+                print(f"\n--- {game['default_name']} Apple 탐색 스킵 (국가 또는 탭 미설정) ---")
                 continue
             print(f"\n--- {game['default_name']} Apple 탐색 ---")
             for country in apple_countries:
-                # #fix6: 국가별 로케일로 컨텍스트 생성 (ko-KR 고정 제거)
+                # 국가별 로케일로 컨텍스트 생성
                 locale = APPLE_LOCALE_MAP.get(country, "en-US")
                 context = browser.new_context(
                     user_agent=random.choice(USER_AGENTS),

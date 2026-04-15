@@ -1,7 +1,9 @@
 """
 Google Play Store 피쳐드 모니터링
-- 비로그인(시크릿) → 계정A 로그인 순서로 세션 2개 순차 실행
-- config.google_play.sections 에 등록된 섹션명 기준으로 탐지
+- 계정A 로그인 세션만 사용 (시크릿 세션 삭제)
+- config.google_play.sections 에 등록된 섹션 타입 기준으로 탐지
+  (타입 예: events, new_games, preregistration, be_first)
+- 게임별 국가/섹션 타입 설정 지원
 - 최상단 섹션명 없는 배너 영역은 "배너" / "Banner" 로 분류
 - 결과: [{"game", "game_id", "country", "section", "screenshot", "store":"google"}]
 """
@@ -41,6 +43,12 @@ BANNER_LABEL = {
     "th": "แบนเนอร์",
 }
 
+# 세로 스크롤 중단 키워드 ("show more" 류 버튼 감지)
+SHOW_MORE_KEYWORDS = [
+    "더보기", "더 보기", "show more", "see more", "もっと見る",
+    "查看更多", "แสดงเพิ่มเติม", "모두 보기", "see all games",
+]
+
 
 # ─────────────────────────────────────────────
 # 유틸리티
@@ -66,6 +74,43 @@ def make_screenshot_path(country: str, section: str, game_id: str) -> str:
     SCREENSHOTS_DIR.mkdir(exist_ok=True)
     safe_section = re.sub(r'[\\/:*?"<>|\s]', '_', section)
     return f"google_{country}_{safe_section}_{game_id}.png"
+
+
+def get_target_sections_for_game_country(sections_map: dict, game: dict, country: str) -> list[str]:
+    """
+    게임의 섹션 타입 키를 기반으로 해당 국가의 현지화 섹션명 목록 반환.
+    game.stores.google.sections 미설정 시 sections_map 전체 타입 사용.
+    """
+    game_section_types = game.get("stores", {}).get("google", {}).get("sections")
+    if game_section_types is None:
+        section_types = list(sections_map.keys())
+    else:
+        section_types = game_section_types
+    return [sections_map[t][country] for t in section_types
+            if sections_map.get(t, {}).get(country)]
+
+
+# ─────────────────────────────────────────────
+# show more 감지 (세로 스크롤 중단 트리거)
+# ─────────────────────────────────────────────
+def _is_show_more_visible(page) -> bool:
+    """뷰포트 내에 'show more' 류 버튼이 보이면 True → 세로 스크롤 중단"""
+    try:
+        return page.evaluate("""(keywords) => {
+            for (const el of document.querySelectorAll('a, button, [role="button"]')) {
+                const text = (el.innerText || '').trim().toLowerCase();
+                if (!text || text.length > 30) continue;
+                if (keywords.some(k => text.includes(k))) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.top >= 0 && rect.top < window.innerHeight && rect.width > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }""", [k.lower() for k in SHOW_MORE_KEYWORDS])
+    except Exception:
+        return False
 
 
 # ─────────────────────────────────────────────
@@ -221,6 +266,7 @@ def scan_google_page(page, country: str, active_games: list,
     """
     Google Play 게임 페이지 스캔.
     배너 + target_sections 에 해당하는 컨테이너만 탐색.
+    세로 스크롤 중 'show more' 버튼 감지 시 즉시 중단.
     중복 기준: (game_id, section) 동일하면 1건
     """
     results = []
@@ -242,13 +288,13 @@ def scan_google_page(page, country: str, active_games: list,
                 if section_label is None:
                     continue  # 관심 없는 섹션
 
-                # 가로 스크롤 끝까지
+                # 가로 스크롤 끝까지 (관심 섹션 내부)
                 scroll_horizontal_fully(page, container_el)
 
                 apps = collect_apps_in_container(page, container_el)
                 for app in apps:
                     for game in active_games:
-                        if "google" not in game.get("stores", []):
+                        if "google" not in game.get("stores", {}):
                             continue
                         if not is_my_game_google(app, country, game):
                             continue
@@ -284,11 +330,15 @@ def scan_google_page(page, country: str, active_games: list,
             except Exception as e:
                 print(f"    [컨테이너 처리 오류] {e}")
 
-    # #fix5: MAX_SCROLL_STEPS 제한으로 무한루프 방지
+    # 세로 스크롤 루프: show more 감지 시 중단
     prev_height = 0
     scroll_count = 0
     while scroll_count < MAX_SCROLL_STEPS:
         process_containers()
+        # show more 버튼 감지 → 스크롤 중단 (차트/랭킹 섹션 전 경계)
+        if _is_show_more_visible(page):
+            print(f"  [Google] 'show more' 버튼 감지 — 세로 스크롤 중단")
+            break
         page.evaluate("window.scrollBy(0, 600)")
         rand_delay(500, 1000)
         curr_height = page.evaluate("document.body.scrollHeight")
@@ -379,93 +429,72 @@ def scan_country_with_retry(context, country: str, hl: str,
 # ─────────────────────────────────────────────
 def run_google_monitoring(config: dict, active_games: list) -> dict[str, list]:
     """
-    Google Play 모니터링 실행.
+    Google Play 모니터링 실행 (계정A 로그인 세션만 사용).
+    게임별 국가/섹션 타입 설정을 준수하여 스캔.
     반환: {game_id: [result, ...]}
     """
     gp_config = config.get("google_play", {})
-    countries = gp_config.get("countries", [])
     sections_map = gp_config.get("sections", {})
     locale_map = gp_config.get("locale_map", {})
 
-    google_games = [g for g in active_games if "google" in g.get("stores", [])]
+    google_games = [g for g in active_games if "google" in g.get("stores", {})]
     if not google_games:
         print("  [Google Play] 모니터링 대상 게임 없음 (stores에 'google' 없음)")
         return {}
 
     game_results: dict[str, list] = {g["id"]: [] for g in google_games}
-    # #fix14: 크로스 세션 중복 추적용 persistent set
     seen_keys: dict[str, set] = {g["id"]: set() for g in google_games}
-    account = load_google_account()
 
-    def merge_results(found: list):
-        for r in found:
-            gid = r["game_id"]
-            if gid not in game_results:
-                continue
-            key = (r["country"], r["section"], r["game_id"])
-            if key not in seen_keys[gid]:
-                seen_keys[gid].add(key)
-                game_results[gid].append(r)
+    account = load_google_account()
+    if not account:
+        print("  [Google Play] GOOGLE_ACCOUNT_A 없음 — 스킵")
+        return {}
 
     with sync_playwright() as pw:
-        # ── 세션 1: 비로그인 (시크릿) ──────────────────
-        # #fix2: 브라우저를 루프 밖에서 1번만 생성 → 좀비 프로세스 방지
-        print("\n=== Google Play 세션 1: 비로그인 ===")
-        incognito_browser = pw.chromium.launch(
+        print("\n=== Google Play: 계정A 로그인 세션 ===")
+        browser = pw.chromium.launch(
             headless=True,
             args=["--no-sandbox", "--disable-setuid-sandbox"],
         )
-        incognito_context = incognito_browser.new_context(
+        context = browser.new_context(
             user_agent=random.choice(USER_AGENTS),
             viewport=VIEWPORT,
         )
         try:
-            for country in countries:
-                hl = locale_map.get(country, "en")
-                target_sections = sections_map.get(country, [])
-                print(f"  탐색: {country.upper()} (hl={hl})")
-                found = scan_country_with_retry(
-                    incognito_context, country, hl, google_games, target_sections,
-                )
-                merge_results(found)
-                rand_delay(1000, 2000)
+            login_page = context.new_page()
+            login_ok = login_google(login_page, account)
+            login_page.close()
+
+            if not login_ok:
+                print("  [Google Play] 로그인 실패 — 스킵")
+                return {}
+
+            for game in google_games:
+                game_countries = game.get("stores", {}).get("google", {}).get("countries", [])
+                if not game_countries:
+                    print(f"  [{game['default_name']}] 설정된 국가 없음 — 스킵")
+                    continue
+                print(f"\n--- {game['default_name']} Google Play 탐색 ---")
+                for country in game_countries:
+                    hl = locale_map.get(country, "en")
+                    target_sections = get_target_sections_for_game_country(
+                        sections_map, game, country
+                    )
+                    print(f"  탐색: {country.upper()} (hl={hl}, 섹션 {len(target_sections)}개)")
+                    found = scan_country_with_retry(
+                        context, country, hl, [game], target_sections,
+                    )
+                    for r in found:
+                        gid = r["game_id"]
+                        key = (r["country"], r["section"], gid)
+                        if gid in game_results and key not in seen_keys[gid]:
+                            seen_keys[gid].add(key)
+                            game_results[gid].append(r)
+                    rand_delay(1000, 2000)
+
         finally:
-            incognito_context.close()
-            incognito_browser.close()
-
-        # ── 세션 2: 계정A 로그인 ───────────────────────
-        if account:
-            print("\n=== Google Play 세션 2: 계정A 로그인 ===")
-            browser = pw.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox"],
-            )
-            context = browser.new_context(
-                user_agent=random.choice(USER_AGENTS),
-                viewport=VIEWPORT,
-            )
-            try:
-                login_page = context.new_page()
-                login_ok = login_google(login_page, account)
-                login_page.close()
-
-                if login_ok:
-                    for country in countries:
-                        hl = locale_map.get(country, "en")
-                        target_sections = sections_map.get(country, [])
-                        print(f"  탐색: {country.upper()} (hl={hl}, 로그인)")
-                        found = scan_country_with_retry(
-                            context, country, hl, google_games, target_sections,
-                        )
-                        merge_results(found)
-                        rand_delay(1000, 2000)
-                else:
-                    print("  [Google Play] 로그인 실패 — 세션2 스킵")
-            finally:
-                context.close()
-                browser.close()
-        else:
-            print("\n=== Google Play 세션 2: GOOGLE_ACCOUNT_A 없음 — 스킵 ===")
+            context.close()
+            browser.close()
 
     total = sum(len(v) for v in game_results.values())
     print(f"\n[Google Play] 총 {total}건 발견")

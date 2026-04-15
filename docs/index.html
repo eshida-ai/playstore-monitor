@@ -159,6 +159,11 @@
 
     hr.sep { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 
+    .store-detail-section {
+      background: #f8f9ff; border: 1px solid #e0e8ff;
+      border-radius: 8px; padding: 12px 16px; margin-top: 10px;
+    }
+
     .collapsible-header {
       cursor: pointer; display: flex; align-items: center; gap: 8px;
       user-select: none;
@@ -195,9 +200,6 @@
 
 <!-- ══════════════ 게임 관리 ══════════════ -->
 <div id="tab-games" class="tab-content active">
-  <!-- 스토어 모니터링 국가 설정 -->
-  <div id="store-settings-card"></div>
-
   <div class="game-list-header">
     <button class="btn-primary" onclick="addGame()">+ 게임 추가</button>
   </div>
