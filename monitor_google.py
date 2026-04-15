@@ -1,6 +1,6 @@
 """
 Google Play Store 피쳐드 모니터링
-- 계정A 로그인 세션만 사용 (시크릿 세션 삭제)
+- 계정A → 계정B 순차 실행 (A가 발견한 국가는 B에서 스킵)
 - config.google_play.sections 에 등록된 섹션 타입 기준으로 탐지
   (타입 예: events, new_games, preregistration, be_first)
 - 게임별 국가/섹션 타입 설정 지원
@@ -476,14 +476,12 @@ def _run_account_session(
             remaining = [c for c in game_countries if c not in already_found]
             skipped = [c for c in game_countries if c in already_found]
 
-            if skipped:
-                print(f"\n--- {game['default_name']} [{account_label}] ---")
-                print(f"  스킵 (A에서 이미 발견): {[c.upper() for c in skipped]}")
-            if not remaining:
-                print(f"  모든 국가 발견 완료 — {account_label} 스킵")
-                continue
-
             print(f"\n--- {game['default_name']} [{account_label}] 탐색 ---")
+            if skipped:
+                print(f"  스킵 (이미 발견): {[c.upper() for c in skipped]}")
+            if not remaining:
+                print(f"  모든 국가 발견 완료 — 스킵")
+                continue
             for country in remaining:
                 hl = locale_map.get(country, "en")
                 target_sections = get_target_sections_for_game_country(
