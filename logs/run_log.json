@@ -63,22 +63,12 @@
     "run_at": "2026-04-15T01:12:28.421404Z",
     "games": {
       "Star Sailors": {
-        "apple_found": [],
-        "google_found": [],
-        "draft_sent_at": "2026-04-15T03:19:19.908515Z",
-        "github_issue": 22,
-        "approved_by": null,
-        "approved_at": null,
-        "final_sent_at": null
+        "status": "google_login_failed",
+        "run_at": "2026-04-15T06:02:08.922681Z"
       },
       "Colorsweeper": {
-        "apple_found": [],
-        "google_found": [],
-        "draft_sent_at": "2026-04-15T03:19:22.684232Z",
-        "github_issue": 23,
-        "approved_by": null,
-        "approved_at": null,
-        "final_sent_at": null
+        "status": "google_login_failed",
+        "run_at": "2026-04-15T06:02:08.922681Z"
       }
     }
   }
