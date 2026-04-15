@@ -362,14 +362,17 @@ def login_google(page, account: dict) -> bool:
                   wait_until="domcontentloaded")
         rand_delay(1000, 2000)
 
-        # 이메일 입력
+        # 이메일 입력 후 Enter (버튼이 not visible인 경우 대응)
         page.fill('input[type="email"]', account["email"])
-        page.click('#identifierNext, [jsname="LgbsSe"]')
+        rand_delay(800, 1200)
+        page.keyboard.press('Enter')
         rand_delay(1500, 2500)
 
-        # 비밀번호 입력
+        # 비밀번호 입력 후 Enter
+        page.wait_for_selector('input[type="password"]', timeout=15000)
         page.fill('input[type="password"]', account["password"])
-        page.click('#passwordNext, [jsname="LgbsSe"]')
+        rand_delay(800, 1200)
+        page.keyboard.press('Enter')
         rand_delay(2000, 3000)
 
         # 로그인 확인 (URL이 accounts.google.com을 벗어나면 성공)
