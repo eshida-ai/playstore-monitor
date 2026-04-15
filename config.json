@@ -20,13 +20,23 @@
         "apple": {
           "countries": [
             "kr",
-            "us",
             "jp",
             "tw",
             "th"
           ],
           "tabs": [
             "games"
+          ]
+        },
+        "google": {
+          "countries": [
+            "kr",
+            "jp",
+            "tw",
+            "th"
+          ],
+          "sections": [
+            "preregistration"
           ]
         }
       },
@@ -35,11 +45,13 @@
       "names": {
         "kr": "스타 세일러",
         "us": "star sailors",
-        "jp": ""
+        "jp": "星屑の絆",
+        "tw": "星絆之旅",
+        "th": "Star Sailors"
       },
       "bundle_ids": {
         "apple": "6749404408",
-        "google": ""
+        "google": "com.com2usholdings.starsailors.android.google.global.normal"
       }
     },
     {
@@ -48,14 +60,13 @@
       "stores": {
         "google": {
           "countries": [
-            "us",
             "jp",
             "tw",
-            "th"
+            "th",
+            "kr"
           ],
           "sections": [
-            "events",
-            "new_games"
+            "preregistration"
           ]
         }
       },
@@ -103,10 +114,10 @@
       }
     },
     "locale_map": {
-      "us": "en",
       "jp": "ja",
       "tw": "zh",
-      "th": "th"
+      "th": "th",
+      "kr": "ko"
     }
   },
   "email": {
