@@ -531,8 +531,13 @@ def main():
 
     # ── Google Play 스캔 ────────────────────────
     print("\n=== Google Play 모니터링 시작 ===")
+    google_login_failed = False
     try:
         google_results = run_google_monitoring(config, active_games)
+        if google_results is None:
+            # 모든 계정 로그인 실패 → 알림 이메일 발송 후 종료
+            google_login_failed = True
+            google_results = {}
     except Exception as e:
         print(f"[Google Play 스캔 실패] {e}")
         traceback.print_exc()
@@ -555,8 +560,28 @@ def main():
         a_found = apple_results.get(gid, [])
         g_found = google_results.get(gid, [])
         found_list = a_found + g_found  # 이메일용 통합 목록
+        is_google_game = "google" in game.get("stores", {})
 
         print(f"\n{game['default_name']}: Apple {len(a_found)}건 / Google {len(g_found)}건")
+
+        # Google 게임인데 로그인 실패 → 알림 이메일 발송 (초안 대신)
+        if is_google_game and google_login_failed:
+            recipients = game["recipients"].get("draft", [])
+            print(f"  [Google 로그인 실패 알림] → {recipients}")
+            mailer.send_error_email(
+                recipients=recipients,
+                error_message=(
+                    f"Google Play 모니터링 실패: {game['default_name']} ({today_str})\n\n"
+                    f"GOOGLE_ACCOUNT_A / GOOGLE_ACCOUNT_B 모두 로그인에 실패하여 "
+                    f"Google Play 피쳐드 모니터링이 수행되지 않았습니다.\n"
+                    f"계정 상태 및 Secret 설정을 확인해 주세요."
+                ),
+            )
+            log_games[gid] = {
+                "status": "google_login_failed",
+                "run_at": run_at,
+            }
+            continue
 
         try:
             issue_number, issue_url = mailer.create_github_issue(
