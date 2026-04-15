@@ -119,8 +119,7 @@ jobs:
           git add logs/run_log.json
           git diff --cached --quiet && exit 0
           git commit -m "[자동] run_log.json 업데이트 — $(date -u +%Y-%m-%d)"
-          # 충돌 방지: 다른 job이 먼저 push한 경우 rebase 후 push
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -201,7 +200,7 @@ jobs:
           git add logs/history.csv
           git diff --cached --quiet && exit 0
           git commit -m "[자동] history.csv 업데이트 — $(date -u +%Y-%m-%d)"
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
