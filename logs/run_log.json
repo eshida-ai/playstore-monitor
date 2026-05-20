@@ -241,5 +241,10 @@
     "status": "no_active_games",
     "run_at": "2026-05-19T01:54:58.526355Z",
     "games": {}
+  },
+  "2026-05-20": {
+    "status": "no_active_games",
+    "run_at": "2026-05-20T01:54:41.216464Z",
+    "games": {}
   }
 }
