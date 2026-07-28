@@ -586,5 +586,10 @@
     "status": "no_active_games",
     "run_at": "2026-07-27T01:25:36.072159Z",
     "games": {}
+  },
+  "2026-07-28": {
+    "status": "no_active_games",
+    "run_at": "2026-07-28T01:13:01.971848Z",
+    "games": {}
   }
 }
